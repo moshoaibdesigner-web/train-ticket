@@ -16,19 +16,19 @@
 :root{
   --bg:#f4f6f5; --surface:#ffffff; --card:#d9e2df; --card-low:#c7d3cf; --line:#dfe5e3;
   --ink:#1c2430; --muted:#5d6b66; --green:#0f5132; --green-ink:#ffffff; --price:#0f5132;
-  --booked:#d97319; --booked-ink:#ffffff; --sel:#2c3a5c; --sel-ink:#ffffff; --prog:#4e8f00; --prog-ink:#ffffff;
+  --booked:#d97319; --booked-ink:#ffffff; --booked-soft:#d9731921; --booked-soft-line:#d9731959; --booked-text:#a3500b; --sel:#2c3a5c; --sel-ink:#ffffff; --prog:#4e8f00; --prog-ink:#ffffff;
   --avail:#ffffff; --avail-line:#2c3a5c; --warn:#c0261c; --warn-bg:#fdecea;
   --f:"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1513; --surface:#18201d; --card:#22302b; --card-low:#1c2824; --line:#2c3a35;
   --ink:#e6ece9; --muted:#9aaba4; --green:#2f8f62; --green-ink:#ffffff; --price:#6fd1a0;
-  --booked:#e58a37; --booked-ink:#1a0d02; --sel:#8fa6e0; --sel-ink:#0d1424; --prog:#7cc23a; --prog-ink:#0c1702;
+  --booked:#e58a37; --booked-ink:#1a0d02; --booked-soft:#e58a3724; --booked-soft-line:#e58a3766; --booked-text:#f2a865; --sel:#8fa6e0; --sel-ink:#0d1424; --prog:#7cc23a; --prog-ink:#0c1702;
   --avail:#18201d; --avail-line:#8fa6e0; --warn:#ff8a80; --warn-bg:#3a1c1a; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1513; --surface:#18201d; --card:#22302b; --card-low:#1c2824; --line:#2c3a35;
   --ink:#e6ece9; --muted:#9aaba4; --green:#2f8f62; --green-ink:#ffffff; --price:#6fd1a0;
-  --booked:#e58a37; --booked-ink:#1a0d02; --sel:#8fa6e0; --sel-ink:#0d1424; --prog:#7cc23a; --prog-ink:#0c1702;
+  --booked:#e58a37; --booked-ink:#1a0d02; --booked-soft:#e58a3724; --booked-soft-line:#e58a3766; --booked-text:#f2a865; --sel:#8fa6e0; --sel-ink:#0d1424; --prog:#7cc23a; --prog-ink:#0c1702;
   --avail:#18201d; --avail-line:#8fa6e0; --warn:#ff8a80; --warn-bg:#3a1c1a; color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -93,7 +93,7 @@ h2{font-size:20px;font-weight:700;margin:0}
 .prow .pn{font-weight:700}
 .prow .pn.none{color:var(--muted);font-weight:500;font-style:italic}
 .prow .pc{font-size:12px;color:var(--muted)}
-.prow .pc b{color:var(--booked);font-weight:600}
+.prow .pc b{color:var(--ink);font-weight:600}
 .prow .pr{display:flex;align-items:center;gap:6px}
 .pinput{padding:7px 38px 7px 10px;font-size:15px;font-weight:600}
 .pwrap{position:relative}
@@ -185,7 +185,11 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .buyer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
 .buyer:last-child{border-bottom:0}
 .buyer .nm{font-weight:700}
-.coachline{font-size:13px;font-weight:500;color:var(--booked)}
+.coachline{font-size:13px;font-weight:500;color:var(--muted)}
+/* calmer seat chips in the right-hand lists (solid orange stays on the seat map) */
+.right .chip,.pop-also .chip{background:var(--booked-soft);color:var(--booked-text);box-shadow:inset 0 0 0 1px var(--booked-soft-line)}
+.right .chip:hover,.pop-also .chip:hover{background:var(--booked-soft-line)}
+.right .chip.on{background:var(--booked);color:var(--booked-ink);outline:none;box-shadow:none}
 .buyer .seats{display:flex;flex-wrap:wrap;gap:4px;grid-column:1/-1}
 .cnt{font-weight:700;font-size:14px;text-align:right;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:2px}
 /* seat details popover (bottom sheet on phones) */
