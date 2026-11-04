@@ -95,6 +95,13 @@ h2{font-size:20px;font-weight:700;margin:0}
 .prow .pc{font-size:12px;color:var(--muted)}
 .prow .pc b{color:var(--booked);font-weight:600}
 .prow .pr{display:flex;align-items:center;gap:6px}
+.pinput{padding:7px 38px 7px 10px;font-size:15px;font-weight:600}
+.pwrap{position:relative}
+.plabel{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:0 0 4px}
+.plabel b{color:var(--booked)}
+.pclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;border-radius:50%;background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.pclear:hover{background:var(--line)}
+.trash.ok{color:var(--price)}
 .prow.hl{background:var(--card-low);margin:0 -10px;padding-inline:10px;border-radius:10px;box-shadow:inset 3px 0 0 var(--booked)}
 .selectbox{position:relative}
 .selectbox select{width:100%;appearance:none;-webkit-appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 44px 12px 20px;font-size:22px;font-weight:700;color:var(--booked);cursor:pointer}
@@ -802,11 +809,21 @@ function makeDb(){
         .sort((a,b)=>a.coach.localeCompare(b.coach)||(+a.seat||0)-(+b.seat||0));
       if(!list.length){box.innerHTML=`<div class="sub" style="padding:12px 0">No one matches “${esc($("bSearch").value.trim())}”.</div>`;return}
       const named=S.seats.filter(s=>s.passenger).length;
-      box.innerHTML=`<div class="sub" style="padding:4px 0 6px">${named} of ${S.seats.length} tickets have a passenger name</div>`+list.map(s=>`<div class="prow${S.focus===s.id?" hl":""}">
-        <div style="min-width:0"><div class="pn${s.passenger?"":" none"}">${s.passenger?esc(s.passenger):"No passenger name"}</div>
-          <div class="pc">Captain <b>${esc(s.buyer)}</b> · ${esc(s.seatClass)}${fareOf(s)!=null?" · "+money(fareOf(s)):""}</div></div>
+      const ae=document.activeElement,keepFocus=S.pEdit&&(!ae||ae===document.body||ae.id==="pInput"||!!ae.closest("#buyers"));
+      box.innerHTML=`<div class="sub" style="padding:4px 0 6px">${named} of ${S.seats.length} tickets have a passenger name</div>`+list.map(s=>{
+        const editing=S.pEdit===s.id;
+        return `<div class="prow${S.focus===s.id||editing?" hl":""}" data-prow="${esc(s.id)}">
+        <div style="min-width:0">${editing
+          ?`<label class="plabel" for="pInput">Passenger name for <b>${esc(s.id)}</b></label><div class="pwrap"><input class="pinput" id="pInput" data-pid="${esc(s.id)}" maxlength="60" placeholder="Passenger name for ${esc(s.id)}" value="${esc(S.pDraft??s.passenger??"")}" aria-label="Passenger name for ${esc(s.id)}"><button type="button" class="pclear" data-pclear="1" aria-label="Clear name" title="Clear"${(S.pDraft??s.passenger??"")?"":" hidden"}><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg></button></div>`
+          :`<div class="pn${s.passenger?"":" none"}">${s.passenger?esc(s.passenger):"No passenger name"}</div>`}
+          <div class="pc">Captain <b>${esc(s.buyer)}</b> · ${esc(s.seatClass)}${fareOf(s)!=null?" · "+money(fareOf(s)):""}${editing?` · <span>Enter to save · Esc to cancel</span>`:""}</div></div>
         <div class="pr"><button type="button" class="chip${S.focus===s.id?" on":""}" style="border:0;cursor:pointer" data-goto="${esc(s.id)}">${esc(s.id)}</button>
-          ${S.canWrite&&db?`<button type="button" class="trash" data-editbuyer="${esc(norm(s.buyer))}" aria-label="Edit ${esc(s.buyer)}'s tickets" title="Edit"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>`:""}</div></div>`).join("");
+          ${S.canWrite&&db?(editing
+            ?`<button type="button" class="trash ok" data-psave="${esc(s.id)}" aria-label="Save" title="Save"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></button>`
+            :`<button type="button" class="trash" data-pedit="${esc(s.id)}" aria-label="Edit passenger name for ${esc(s.id)}" title="Edit name"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>`):""}</div></div>`}).join("");
+      S.pOrder=list.map(s=>s.id);
+      // keep typing position when the list refreshes
+      const inp=$("pInput");if(inp&&keepFocus){inp.focus();const n=inp.value.length;inp.setSelectionRange(n,n)}
       return;
     }
     const shown=[...g.values()].filter(b=>!q||hay(b).includes(q));
@@ -820,6 +837,31 @@ function makeDb(){
         <div class="seats">${b.list.sort((x,y)=>x.id.localeCompare(y.id,undefined,{numeric:true})).map(s=>`<button type="button" class="chip${S.focus===s.id?" on":""}" style="border:0;cursor:pointer" data-goto="${esc(s.id)}" title="${esc(s.seatClass)}">${esc(s.id)}</button>`).join("")}</div></div>`;
     }).join("");
   }
+
+  // ---------- passenger name, edited right in the passenger list ----------
+  function startPEdit(id){
+    const rec=seatMap().get(id);if(!rec)return;
+    S.pEdit=id;S.pDraft=rec.passenger||"";renderBuyers();const inp=$("pInput");if(inp)inp.focus();
+    const row=document.querySelector(`[data-prow="${id}"]`);if(row)row.scrollIntoView({block:"nearest"});
+  }
+  function stopPEdit(){S.pEdit=null;S.pDraft=null;renderBuyers()}
+  async function savePEdit(next){
+    const id=S.pEdit,rec=seatMap().get(id);if(!rec){stopPEdit();return}
+    const name=(S.pDraft||"").trim().replace(/\s+/g," ");
+    const order=S.pOrder||[],nextId=order[order.indexOf(id)+1];
+    if(name!==(rec.passenger||"")){
+      const {id:_i,...old}=rec;
+      try{await db.collection("seats").doc(id).set({...old,passenger:name,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()});toast(id+(name?" · "+name:" · name cleared"))}
+      catch(err){writeErr(err);return}
+    }
+    if(next&&nextId)startPEdit(nextId);else stopPEdit();
+  }
+  $("buyers").addEventListener("input",e=>{if(e.target.id==="pInput"){S.pDraft=e.target.value;const c=document.querySelector("[data-pclear]");if(c)c.hidden=!e.target.value}});
+  $("buyers").addEventListener("keydown",e=>{
+    if(e.target.id!=="pInput")return;
+    if(e.key==="Enter"){e.preventDefault();savePEdit(true)}
+    else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();stopPEdit()}
+  });
 
   // ---------- Excel export (same layout as the team's sheet) ----------
   let xlsxLoading=null;
@@ -914,7 +956,10 @@ function makeDb(){
       if(!S.canWrite||!db)return;
       if(S.sel.has(id)){S.sel.delete(id);S.lastSel=[...S.sel].pop()}else{S.sel.add(id);S.lastSel=id}
       S.focus=null;S.editing=false;render();return}
-    if(t.dataset.view){VIEW=t.dataset.view;try{localStorage.setItem("ticketView",VIEW)}catch(_){}renderMap();renderBuyers();return}
+    if(t.dataset.pedit){startPEdit(t.dataset.pedit);return}
+    if(t.dataset.psave){savePEdit(false);return}
+    if(t.dataset.pclear){const i=$("pInput");if(i){i.value="";S.pDraft="";t.hidden=true;i.focus()}return}
+    if(t.dataset.view){S.pEdit=null;S.pDraft=null;VIEW=t.dataset.view;try{localStorage.setItem("ticketView",VIEW)}catch(_){}renderMap();renderBuyers();return}
     if(t.dataset.refund){S.refund=t.dataset.refund;renderSheet();return}
     if(t.id==="useSuggest"){S.amountTouched=false;renderSheet();return}
     if(t.dataset.erefund){document.querySelectorAll("[data-erefund]").forEach(b=>b.setAttribute("aria-checked",String(b===t)));return}
