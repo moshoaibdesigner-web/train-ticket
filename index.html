@@ -33,7 +33,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15px;l
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 160px}
 .wrap{max-width:720px;margin:0 auto;display:grid;gap:18px}
 .left{display:grid;gap:18px;min-width:0}
-.right{min-width:0}
+.right{min-width:0;display:grid;gap:16px;align-content:start}
 @media (min-width:980px){.wrap{max-width:1180px;grid-template-columns:minmax(0,1fr) 380px;align-items:start;gap:24px}
   .right{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow-y:auto}}
 button,input,select{font:inherit;color:inherit}
@@ -121,11 +121,13 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .chip.prog{background:var(--prog);color:var(--prog-ink)}
 .chip.sel{background:var(--sel);color:var(--sel-ink)}
 
-/* bottom sheet */
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgba(0,0,0,.12);
-  padding:14px max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
-.sheet .in{max-width:720px;margin:0 auto;display:grid;gap:10px}
-.sheet .chips{display:flex;flex-wrap:wrap;gap:4px}
+/* add-seats popup */
+.addpop{width:320px}
+.addpop .in{display:grid;gap:12px}
+.addpop .chips{display:flex;flex-wrap:wrap;gap:4px}
+.addpop .chips:empty{display:none}
+.pop-tag.avail{background:transparent;color:var(--sel);border:1.5px solid var(--avail-line)}
+.seat.booked{cursor:default}
 
 /* buyers */
 .buyer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -134,17 +136,58 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .coachline{font-size:13px;font-weight:500;color:var(--booked)}
 .buyer .seats{display:flex;flex-wrap:wrap;gap:4px;grid-column:1/-1}
 .cnt{font-weight:700;font-size:14px;text-align:right;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:2px}
+/* seat details popover (bottom sheet on phones) */
+.pop.detail{position:static;width:auto;max-width:none;box-shadow:none;border-color:var(--booked);border-width:1.5px}
+.pop{position:absolute;z-index:25;width:300px;max-width:calc(100vw - 24px);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.25);padding:16px;display:grid;gap:12px}
+.pop-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pop-code{font-size:24px;font-weight:900;letter-spacing:.01em}
+.pop-tag{background:var(--booked);color:var(--booked-ink);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-radius:20px;padding:3px 9px;margin-left:8px;vertical-align:4px}
+.pop-meta{font-size:13px;color:var(--muted);margin-top:-8px}
+.pop-person{display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--booked);color:var(--booked-ink);display:grid;place-items:center;font-weight:900;font-size:18px;flex:none}
+.eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.pop-name{font-weight:700;font-size:18px;line-height:1.2;overflow-wrap:anywhere}
+.pop-also{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;color:var(--muted)}
+.pop-also span{margin-right:2px}
+.pop-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:10px;min-height:44px}
+.iconbtn{border:0;background:var(--card);color:var(--ink);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none}
+.rmbtn{border:0;background:transparent;color:var(--warn);font-weight:700;font-size:13px;display:flex;gap:6px;align-items:center;cursor:pointer;padding:6px 8px;border-radius:6px}
+.rmbtn:hover{background:var(--warn-bg)}
+.rmbtn.icon{width:38px;height:38px;padding:0;justify-content:center;border-radius:50%;background:var(--warn-bg)}
+.backdrop{position:fixed;inset:0;z-index:24;background:rgba(0,0,0,.4)}
+@media (max-width:600px){.pop,.pop.detail{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;border-radius:18px 18px 0 0;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}}
 .trash{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:6px;margin-left:6px;border-radius:6px;display:grid;place-items:center}
 .trash:hover{color:var(--warn);background:var(--warn-bg)}
-.delconfirm{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 10px;font-size:13px;font-weight:500}
-.delconfirm span{flex:1;min-width:140px}
+/* totals (top right) */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--card-low);border:1.5px solid var(--green);border-radius:10px;padding:14px 10px;text-align:center;display:grid;gap:4px}
+.stat span{font-size:13px;color:var(--muted)}
+.stat b{font-size:34px;font-weight:900;line-height:1;color:var(--price)}
+/* confirmation dialog */
+.cf-back{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:grid;place-items:center;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.cf{width:min(380px,100%);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.35);padding:22px;display:grid;gap:14px;text-align:center}
+.cf-icon{width:52px;height:52px;border-radius:50%;background:var(--warn-bg);color:var(--warn);display:grid;place-items:center;margin:0 auto}
+.cf h3{margin:0;font-size:20px;font-weight:800}
+.cf p{margin:0;color:var(--muted);font-size:14px}
+.cf p b{color:var(--ink)}
+.cf-seats{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+.cf-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.cf-actions .btn{width:100%}
 .cnt.full{color:var(--booked)} .cnt.over{color:var(--warn)}
 .pips{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
 .pips i{width:10px;height:10px;border-radius:3px;background:var(--card)}
 .pips i.on{background:var(--green)}
 .cnt.full .pips i.on{background:var(--booked)} .cnt.over .pips i.on{background:var(--warn)}
 .sub{font-size:12px;color:var(--muted)}
-.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
+.toast-act{margin-left:14px;border:0;background:transparent;color:var(--booked);font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;padding:2px 4px;font-size:13px}
+.editbtn{border:0;background:transparent;color:var(--ink);font-weight:700;font-size:13px;display:flex;gap:6px;align-items:center;cursor:pointer;padding:6px 8px;border-radius:6px}
+.editbtn:hover{background:var(--card)}
+.buyer.hl{background:var(--card-low);margin:0 -10px;padding-inline:10px;border-radius:10px;box-shadow:inset 3px 0 0 var(--booked)}
+.chip.on{outline:2px solid var(--ink);outline-offset:1px}
+.seat.booked.focus{outline:3px solid var(--ink);outline-offset:2px}
+.toast{display:flex;align-items:center;position:fixed;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
 .linkbtn{background:none;border:0;color:var(--green);font-weight:700;cursor:pointer;font-size:13px;padding:4px;text-decoration:underline;text-underline-offset:3px}
 </style>
 
@@ -194,18 +237,28 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
     <div class="map" id="map"><div class="emptymap">Loading seats…</div></div>
   </section>
 
-  <section class="panel" id="info" hidden></section>
  </div>
 
-  <section class="panel right">
-    <div class="top"><h2>Who bought what</h2><span class="sub">Max 4 per person</span></div>
-    <div id="buyers"></div>
-  </section>
+  <aside class="right">
+    <div class="stats" aria-live="polite">
+      <div class="stat"><span>Total tickets bought</span><b class="num" id="stTickets">0</b></div>
+      <div class="stat"><span>People who bought</span><b class="num" id="stBuyers">0</b></div>
+    </div>
+    <div class="pop detail" id="info" role="dialog" aria-label="Seat details" hidden></div>
+    <section class="panel">
+      <div class="top"><h2>Who bought what</h2><span class="sub">Max 4 per person</span></div>
+      <div id="buyers"></div>
+    </section>
+  </aside>
 </div>
 
-<div class="sheet" id="sheet" hidden>
+<div class="pop addpop" id="sheet" role="dialog" aria-label="Add seats" hidden>
   <form class="in" id="sheetForm" autocomplete="off">
-    <div class="row" style="justify-content:space-between"><b id="selCount">0 seat(s) selected</b><button class="linkbtn" type="button" id="clearSel">Clear</button></div>
+    <div class="pop-head">
+      <div><span class="pop-code" id="selTitle">UMA-1</span><span class="pop-tag avail">Available</span></div>
+      <button class="iconbtn" type="button" id="clearSel" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg></button>
+    </div>
+    <div class="pop-meta" id="selCount"></div>
     <div class="chips" id="selChips"></div>
     <div class="two">
       <label for="sBuyer">Bought by<input id="sBuyer" list="buyerList" maxlength="60" placeholder="Name" required></label>
@@ -213,10 +266,22 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
     </div>
     <datalist id="buyerList"></datalist>
     <div id="sheetMsg"></div>
-    <div class="row">
-      <button class="btn" type="submit" id="markBooked">Save seats</button>
-    </div>
+    <button class="btn" type="submit" id="markBooked">Save</button>
+    <div class="sub">Tip: tap more available seats to add them for the same person.</div>
   </form>
+</div>
+<div class="backdrop" id="popBack" hidden></div>
+<div class="cf-back" id="cfBack" hidden>
+  <div class="cf" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle" aria-describedby="cfBody">
+    <div class="cf-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></div>
+    <h3 id="cfTitle"></h3>
+    <p id="cfBody"></p>
+    <div class="cf-seats" id="cfSeats"></div>
+    <div class="cf-actions">
+      <button class="btn ghost" type="button" id="cfNo">Cancel</button>
+      <button class="btn danger" type="button" id="cfYes">Delete</button>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast" hidden></div>
 
@@ -264,7 +329,17 @@ function makeDb(){
   const norm=s=>String(s||"").trim().replace(/\s+/g," ").toLowerCase();
   const slug=s=>String(s||"").trim().toUpperCase().replace(/[^A-Z0-9_-]/g,"");
   const seatId=(coach,n)=>coach+"-"+n;
-  function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+  function toast(m,action){const t=$("toast");t.textContent=m;
+    if(action){const b=document.createElement("button");b.type="button";b.className="toast-act";b.textContent=action.label;
+      b.onclick=e=>{e.stopPropagation();t.hidden=true;action.fn()};t.appendChild(b)}
+    t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,action?7000:2600)}
+  // highlight the focused seat's buyer in the right panel and bring it into view
+  function revealBuyer(){
+    const el=document.querySelector(".buyer.hl");if(!el)return;
+    const panel=el.closest(".right");
+    if(innerWidth>=980&&panel){const pr=panel.getBoundingClientRect(),er=el.getBoundingClientRect();
+      if(er.top<pr.top||er.bottom>pr.bottom)panel.scrollTop+=er.top-pr.top-60}
+  }
   function setStatus(m,bad){$("status").textContent=m;$("status").classList.toggle("bad",!!bad)}
 
   const seatMap=()=>{const m=new Map();for(const s of S.seats)m.set(s.id,s);return m};
@@ -332,24 +407,88 @@ function makeDb(){
         if(n==="aisle"||n==null){h+=`<span></span>`;continue}
         const id=seatId(c.id,n),rec=m.get(id),sel=S.sel.has(id);
         const cls=sel?"sel":rec?"booked":"";
-        h+=`<button type="button" class="seat ${cls} ${S.focus===id?"focus":""}" data-seat="${id}" aria-label="${id}${rec?" bought by "+esc(rec.buyer):""}">${id}${rec&&!sel?`<small>${esc(rec.buyer)}</small>`:""}</button>`;
+        h+=rec?`<button type="button" class="seat booked ${S.focus===id?"focus":""}" data-seat="${id}" aria-label="${id} booked by ${esc(rec.buyer)}">${id}<small>${esc(rec.buyer)}</small></button>`
+          :`<button type="button" class="seat ${cls}" data-seat="${id}" aria-pressed="${sel}" aria-label="${id} available">${id}</button>`;
       }
     }
     $("map").innerHTML=h+`</div>`;
   }
 
+  const TRASH=`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>`;
   function renderInfo(){
     const rec=S.focus&&seatMap().get(S.focus);const box=$("info");
-    if(!rec){box.hidden=true;return}
+    if(!rec){box.hidden=true;$("popBack").hidden=true;return}
     box.hidden=false;
-    box.innerHTML=`<div class="row" style="justify-content:space-between"><div><span class="chip">${esc(rec.id)}</span> <b>Booked</b></div><button class="linkbtn" type="button" id="closeInfo">Close</button></div>
-      <div><div><span class="muted">Bought by</span> <b>${esc(rec.buyer)}</b></div>
-      ${rec.elx?`<div><span class="muted">ELX ID</span> <b class="num">${esc(rec.elx)}</b></div>`:""}
-      <div class="sub">${esc(rec.seatClass)} · ${rec.updatedAt?new Date(rec.updatedAt).toLocaleString(undefined,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""} <span id="addedBy"></span></div></div>
-      ${S.canWrite&&db?`<div class="row">${S.confirm?`<button class="btn danger small" type="button" id="infoFreeYes">Yes, remove</button><button class="btn ghost small" type="button" id="infoFreeNo">Keep</button>`
-          :`<button class="btn ghost small" type="button" id="infoFree">Remove (entered by mistake)</button>`}</div>`:""}`;
-    if(user&&user.profiles&&rec.addedBy)user.profiles([rec.addedBy]).then(p=>{const n=p&&p[rec.addedBy]&&p[rec.addedBy].name;const el=$("addedBy");if(n&&el)el.textContent="· added by "+n}).catch(()=>{});
+    const others=S.seats.filter(s=>norm(s.buyer)===norm(rec.buyer)&&s.id!==rec.id).sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true}));
+    const when=rec.updatedAt?new Date(rec.updatedAt).toLocaleString(undefined,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):"";
+    box.innerHTML=`<div class="pop-head">
+        <div><span class="pop-code">${esc(rec.id)}</span><span class="pop-tag">Booked</span></div>
+        <button class="iconbtn" type="button" id="closeInfo" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg></button>
+      </div>
+      <div class="pop-meta">${esc(rec.seatClass)} · Coach ${esc(rec.coach)} · Seat ${esc(rec.seat??rec.id.split("-").pop())}</div>
+      ${S.editing?`<div class="two">
+          <label for="eBuyer">Bought by<input id="eBuyer" list="buyerList" maxlength="60" value="${esc(rec.buyer)}"></label>
+          <label for="eElx">ELX ID<input id="eElx" maxlength="40" value="${esc(rec.elx||"")}" placeholder="ELX ID"></label>
+        </div><div id="eMsg"></div>
+        <div class="row"><button class="btn small" type="button" id="infoEditSave">Save</button><button class="btn ghost small" type="button" id="infoEditCancel">Cancel</button></div>`
+      :`<div class="pop-person">
+        <span class="avatar" aria-hidden="true">${esc((rec.buyer||"?").trim().charAt(0).toUpperCase())}</span>
+        <div style="min-width:0"><div class="eyebrow">Bought by</div><div class="pop-name">${esc(rec.buyer)}</div>
+          <div class="sub num">${rec.elx?"ELX ID "+esc(rec.elx):"No ELX ID"}</div></div>
+      </div>
+      ${others.length?`<div class="pop-also"><span>Also bought</span>${others.map(s=>`<button type="button" class="chip" style="border:0;cursor:pointer" data-goto="${esc(s.id)}">${esc(s.id)}</button>`).join("")}</div>`:""}
+      <div class="pop-foot">
+        <span class="sub">${when?"Saved "+esc(when):""}</span>
+        ${S.canWrite&&db?`<span class="row" style="gap:2px"><button class="editbtn" type="button" id="infoEdit"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Edit</button><button class="rmbtn icon" type="button" id="infoFree" aria-label="Delete seat" title="Delete seat">${TRASH.replace(/16/g,"20")}</button></span>`:""}
+      </div>`}
+`;
+    placeInfo();
   }
+  function placeInfo(){
+    const box=$("info");if(box.hidden)return;
+    if(innerWidth<=600){box.style.left="";box.style.top="";$("popBack").hidden=false;return}
+    $("popBack").hidden=true;box.style.left="";box.style.top="";
+    const panel=box.closest(".right");if(panel&&innerWidth>=980)panel.scrollTop=0;
+    else{const r=box.getBoundingClientRect();if(r.top<0||r.top>innerHeight-80)box.scrollIntoView({behavior:"smooth",block:"nearest"})}
+  }
+  // centered "are you sure?" dialog; resolves true only when the red button is pressed
+  function askConfirm({title,body,seats,okText}){
+    return new Promise(resolve=>{
+      const back=$("cfBack"),prev=document.activeElement;
+      $("cfTitle").textContent=title;$("cfBody").innerHTML=body;$("cfYes").textContent=okText||"Delete";
+      $("cfSeats").innerHTML=(seats||[]).map(i=>`<span class="chip">${esc(i)}</span>`).join("");
+      back.hidden=false;$("cfNo").focus();
+      const done=v=>{back.hidden=true;back.onclick=null;removeEventListener("keydown",key,true);prev&&prev.focus&&prev.focus();resolve(v)};
+      const key=e=>{if(e.key==="Escape"){e.stopPropagation();done(false)}};
+      addEventListener("keydown",key,true);
+      back.onclick=e=>{e.stopPropagation();if(e.target.closest("#cfYes"))done(true);else if(e.target.closest("#cfNo")||e.target===back)done(false)};
+    });
+  }
+  function anchorPos(box,el){
+    // sit beside the whole seat grid (so neighbouring seats stay tappable), level with the seat
+    const r=el.getBoundingClientRect(),g=(el.closest(".grid")||el).getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight,M=12;
+    let left=g.right+M,top=r.top+r.height/2-h/2;
+    if(left+w>innerWidth-M)left=g.left-M-w;
+    if(left<M){left=Math.max(M,Math.min(innerWidth-w-M,r.left+r.width/2-w/2));top=r.bottom+10}
+    else top=Math.max(M,Math.min(innerHeight-h-M,top));
+    box.style.left=(left+scrollX)+"px";box.style.top=(top+scrollY)+"px";
+  }
+  function placeSheet(){
+    const box=$("sheet");
+    document.body.style.paddingBottom=(!box.hidden&&innerWidth<=600)?(box.offsetHeight+24)+"px":"";
+    if(box.hidden)return;
+    if(innerWidth<=600){box.style.left="";box.style.top="";return}
+    const el=S.lastSel&&document.querySelector(`button[data-seat="${S.lastSel}"]`);if(el)anchorPos(box,el);
+  }
+  addEventListener("resize",()=>{placeInfo();placeSheet()});
+  addEventListener("keydown",e=>{if(e.key!=="Escape")return;
+    if(S.focus){S.focus=null;S.editing=false;renderMap();renderInfo();renderBuyers()}
+    if(S.sel.size){S.sel.clear();renderMap();renderSheet()}});
+  document.addEventListener("click",e=>{
+    if(e.target.closest("button[data-seat],[data-goto]"))return;
+    if(S.focus&&!e.target.closest("#info,#toast")){S.focus=null;S.editing=false;renderMap();renderInfo();renderBuyers()}
+    if(S.sel.size&&!e.target.closest("#sheet")){S.sel.clear();renderMap();renderSheet()}
+  });
 
   function buyerCount(name,excludeIds){
     const k=norm(name);return S.seats.filter(s=>norm(s.buyer)===k&&!(excludeIds&&excludeIds.has(s.id))).length;
@@ -357,10 +496,15 @@ function makeDb(){
 
   function renderSheet(){
     const show=S.sel.size>0&&S.canWrite;
-    $("sheet").hidden=!show; if(!show)return;
-    const ids=[...S.sel];
-    $("selCount").textContent=ids.length+" seat(s) selected";
-    $("selChips").innerHTML=ids.map(i=>`<span class="chip sel">${esc(i)}</span>`).join("");
+    const wasHidden=$("sheet").hidden;
+    $("sheet").hidden=!show; if(!show){placeSheet();return}
+    const ids=[...S.sel];const c=coachObj();
+    $("selTitle").textContent=ids.length===1?ids[0]:ids.length+" seats";
+    $("selCount").textContent=(c?c.seatClass+" · Coach "+c.id:"")+(ids.length===1?" · Seat "+ids[0].split("-").pop():"");
+    $("selChips").innerHTML=ids.length>1?ids.map(i=>`<span class="chip sel">${esc(i)}</span>`).join(""):"";
+    $("markBooked").textContent=ids.length===1?"Save seat":"Save "+ids.length+" seats";
+    placeSheet();
+    if(wasHidden&&innerWidth>600)setTimeout(()=>$("sBuyer").focus(),0);
     const name=$("sBuyer").value.trim(); const msgs=[];
     if(name){const have=buyerCount(name,S.sel);const tot=have+ids.length;
       if(tot>MAX)msgs.push(`${name} already has ${have} ticket(s). With these ${ids.length} it would be ${tot}, over the limit of ${MAX}.`);}
@@ -371,6 +515,8 @@ function makeDb(){
 
   function renderBuyers(){
     const box=$("buyers");
+    $("stTickets").textContent=S.seats.length;
+    $("stBuyers").textContent=new Set(S.seats.map(s=>norm(s.buyer))).size;
     if(!S.loaded){box.innerHTML=`<div class="sub">Loading…</div>`;return}
     const g=new Map();
     for(const s of S.seats){const k=norm(s.buyer);if(!g.has(k))g.set(k,{name:s.buyer,elx:s.elx,list:[]});const b=g.get(k);b.list.push(s);if(!b.elx&&s.elx)b.elx=s.elx}
@@ -379,10 +525,10 @@ function makeDb(){
     box.innerHTML=[...g.values()].sort((a,b)=>b.list.length-a.list.length||a.name.localeCompare(b.name)).map(b=>{
       const n=b.list.length,cls=n>MAX?"over":n===MAX?"full":"";
       let p="";for(let i=0;i<Math.max(MAX,n);i++)p+=`<i class="${i<n?"on":""}"></i>`;
-      return `<div class="buyer"><div><div class="nm">${esc(b.name)}</div><div class="coachline">${[...new Set(b.list.map(s=>"Coach "+s.coach+" · "+s.seatClass))].map(esc).join("<br>")}</div><div class="sub num">${b.elx?"ELX ID "+esc(b.elx):""}</div></div>
+      const fr=S.focus&&seatMap().get(S.focus),hl=fr&&norm(fr.buyer)===norm(b.name);
+      return `<div class="buyer${hl?" hl":""}"><div><div class="nm">${esc(b.name)}</div><div class="coachline">${[...new Set(b.list.map(s=>"Coach "+s.coach+" · "+s.seatClass))].map(esc).join("<br>")}</div><div class="sub num">${b.elx?"ELX ID "+esc(b.elx):""}</div></div>
         <div class="cnt ${cls} num">${n} / ${MAX}<span class="pips">${p}</span>${S.canWrite&&db?`<button type="button" class="trash" data-delbuyer="${esc(norm(b.name))}" aria-label="Delete ${esc(b.name)}'s seats" title="Delete"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></button>`:""}</div>
-        <div class="seats">${b.list.sort((x,y)=>x.id.localeCompare(y.id,undefined,{numeric:true})).map(s=>`<button type="button" class="chip" style="border:0;cursor:pointer" data-goto="${esc(s.id)}" title="${esc(s.seatClass)}">${esc(s.id)}</button>`).join("")}</div>
-        ${S.delBuyer===norm(b.name)?`<div class="delconfirm"><span>Delete ${esc(b.name)}'s ${n} seat(s)?</span><button class="btn danger small" type="button" data-delbuyeryes="${esc(norm(b.name))}">Delete</button><button class="btn ghost small" type="button" data-delbuyerno="1">Cancel</button></div>`:""}</div>`;
+        <div class="seats">${b.list.sort((x,y)=>x.id.localeCompare(y.id,undefined,{numeric:true})).map(s=>`<button type="button" class="chip${S.focus===s.id?" on":""}" style="border:0;cursor:pointer" data-goto="${esc(s.id)}" title="${esc(s.seatClass)}">${esc(s.id)}</button>`).join("")}</div></div>`;
     }).join("");
   }
 
@@ -399,7 +545,7 @@ function makeDb(){
           buyer:name,elx:$("sElx").value.trim(),addedBy:me||null,updatedAt:Date.now()});
       }
       toast(`${ids.length} seat(s) saved for ${name}`);
-      S.sel.clear();
+      S.sel.clear();$("sBuyer").value="";$("sElx").value="";
     }catch(e){writeErr(e)}
     render();
   }
@@ -422,20 +568,34 @@ function makeDb(){
     if(t.id==="addClassBtn"){$("classForm").hidden=!$("classForm").hidden;$("cName").focus();return}
     if(t.dataset.seat){
       const id=t.dataset.seat,rec=seatMap().get(id);
-      if(rec&&!S.sel.has(id)){S.focus=S.focus===id?null:id;S.confirm=false}
-      else if(S.canWrite&&db){S.sel.has(id)?S.sel.delete(id):S.sel.add(id);S.focus=null}
-      render();return}
-    if(t.dataset.goto){const rec=seatMap().get(t.dataset.goto);if(!rec)return;S.cls=rec.seatClass;S.coach=rec.coach;S.focus=rec.id;S.confirm=false;S.sel.clear();render();$("map").scrollIntoView({behavior:"smooth",block:"start"});return}
-    if(t.id==="closeInfo"){S.focus=null;render();return}
-    if(t.id==="infoFree"){S.confirm=true;renderInfo();return}
-    if(t.id==="infoFreeNo"){S.confirm=false;renderInfo();return}
-    if(t.dataset.delbuyer){S.delBuyer=S.delBuyer===t.dataset.delbuyer?null:t.dataset.delbuyer;renderBuyers();return}
-    if(t.dataset.delbuyerno){S.delBuyer=null;renderBuyers();return}
-    if(t.dataset.delbuyeryes){const k=t.dataset.delbuyeryes;S.delBuyer=null;
-      const ids=S.seats.filter(s=>norm(s.buyer)===k).map(s=>s.id);
+      if(rec){S.sel.clear();S.editing=false;S.focus=S.focus===id?null:id;render();revealBuyer();return}
+      if(!S.canWrite||!db)return;
+      if(S.sel.has(id)){S.sel.delete(id);S.lastSel=[...S.sel].pop()}else{S.sel.add(id);S.lastSel=id}
+      S.focus=null;S.editing=false;render();return}
+    if(t.id==="infoEdit"){S.editing=true;renderInfo();setTimeout(()=>{const i=$("eBuyer");i&&i.focus()},0);return}
+    if(t.id==="infoEditCancel"){S.editing=false;renderInfo();return}
+    if(t.id==="infoEditSave"){const rec=seatMap().get(S.focus);if(!rec)return;
+      const name=$("eBuyer").value.trim().replace(/\s+/g," "),elx=$("eElx").value.trim();
+      if(!name){$("eMsg").innerHTML=`<div class="notice">Enter who bought this seat.</div>`;return}
+      if(norm(name)!==norm(rec.buyer)&&buyerCount(name)+1>MAX){$("eMsg").innerHTML=`<div class="notice">${esc(name)} already has ${buyerCount(name)} ticket(s). The limit is ${MAX}.</div>`;return}
+      const {id:_i,...old}=rec;
+      try{await db.collection("seats").doc(rec.id).set({...old,buyer:name,elx,updatedAt:Date.now()});S.editing=false;toast(rec.id+" updated")}catch(err){writeErr(err)}
+      render();revealBuyer();return}
+    if(t.dataset.goto){const rec=seatMap().get(t.dataset.goto);if(!rec)return;S.cls=rec.seatClass;S.coach=rec.coach;S.focus=rec.id;S.editing=false;S.sel.clear();render();revealBuyer();
+      const el=document.querySelector(`[data-seat="${rec.id}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});setTimeout(placeInfo,500)}return}
+    if(t.id==="closeInfo"){S.focus=null;S.editing=false;render();return}
+    if(t.id==="infoFree"){const rec=seatMap().get(S.focus);if(!rec)return;
+      S.focus=null;S.editing=false;render();
+      const {id:_i,...old}=rec;
+      try{await db.collection("seats").doc(rec.id).delete();
+        toast(`${rec.id} deleted (${rec.buyer})`,{label:"Undo",fn:async()=>{try{await db.collection("seats").doc(rec.id).set(old);toast(rec.id+" restored")}catch(err){writeErr(err)}}});
+      }catch(err){writeErr(err)}return}
+    if(t.dataset.delbuyer){const k=t.dataset.delbuyer;const list=S.seats.filter(s=>norm(s.buyer)===k);if(!list.length)return;
+      const ids=list.map(s=>s.id).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+      const ok=await askConfirm({title:`Delete ${list[0].buyer}?`,body:`All ${ids.length} seat(s) saved for <b>${esc(list[0].buyer)}</b> will be removed and show as available again.`,seats:ids,okText:ids.length===1?"Delete 1 seat":`Delete ${ids.length} seats`});
+      if(!ok)return;
       try{for(const id of ids)await db.collection("seats").doc(id).delete();toast(ids.length+" seat(s) deleted")}catch(err){writeErr(err)}
       if(ids.includes(S.focus))S.focus=null;render();return}
-    if(t.id==="infoFreeYes"){const id=S.focus;S.focus=null;S.confirm=false;try{await db.collection("seats").doc(id).delete();toast(id+" removed")}catch(err){writeErr(err)}return}
   });
 
   $("coachForm").addEventListener("submit",async e=>{
