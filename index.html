@@ -207,7 +207,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .amt{font-size:13px;font-weight:700;color:var(--price)}
 .rf{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:20px;padding:2px 7px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .rf.yes{border-color:var(--green);color:var(--price)}
-.ed-row{display:grid;grid-template-columns:auto minmax(0,1fr) 90px auto;gap:6px;align-items:center}
+.ed-row{display:grid;grid-template-columns:78px minmax(0,1fr) 30px;gap:6px;align-items:center}
 .ed-row .chip{text-align:center}
 .ed-row input{padding:7px 9px;font-size:14px}
 .ed-row.gone .chip{background:transparent;color:var(--muted);border:1px dashed var(--line);text-decoration:line-through}
@@ -369,12 +369,13 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
       <label for="edName">Name<input id="edName" maxlength="60" required></label>
       <label for="edElx">ELX ID<input id="edElx" maxlength="40" placeholder="ELX ID"></label>
     </div>
+    <label for="edAmount"><span>Total amount (৳) <span class="sub" style="font-weight:500">· split evenly across the tickets</span></span><input id="edAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 3852"></label>
     <div class="seg" role="radiogroup" aria-label="Refund" id="edRefund">
       <button type="button" role="radio" data-edrefund="Non Refund" aria-checked="true">Non Refundable</button>
       <button type="button" role="radio" data-edrefund="Refundable" aria-checked="false">Refundable</button>
     </div>
     <div>
-      <div class="eyebrow" style="margin-bottom:6px">Tickets <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:500">· passenger, fare · tap ✕ to remove</span></div>
+      <div class="eyebrow" style="margin-bottom:6px">Tickets <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:500">· passenger names · tap ✕ to remove</span></div>
       <div class="ed-seats" id="edSeats"></div>
       <div class="ed-total num" id="edTotal"></div>
     </div>
@@ -607,9 +608,9 @@ function makeDb(){
     $("edTitle").textContent="Edit "+list[0].buyer;$("edName").value=list[0].buyer;
     $("edElx").value=(list.find(s=>s.elx)||{}).elx||"";$("edMsg").innerHTML="";
     ED.refund=(list.find(s=>s.refund)||{}).refund||"Non Refund";setEdRefund();
+    const sum=list.reduce((t,s)=>t+(fareOf(s)||0),0);ED.amount0=sum?String(Math.round(sum*100)/100):"";$("edAmount").value=ED.amount0;
     $("edSeats").innerHTML=edList().map(s=>`<div class="ed-row" data-row="${esc(s.id)}"><span class="chip" title="${esc(s.seatClass)}">${esc(s.id)}</span>
       <input data-edpass="${esc(s.id)}" maxlength="60" placeholder="Passenger" value="${esc(s.passenger||"")}" aria-label="Passenger for ${esc(s.id)}">
-      <input data-edfare="${esc(s.id)}" type="number" min="0" step="1" placeholder="Fare" value="${fareOf(s)??""}" aria-label="Fare for ${esc(s.id)}">
       <button type="button" data-edseat="${esc(s.id)}" aria-label="Remove ${esc(s.id)}">✕</button></div>`).join("");
     renderEditorSeats();$("edBack").hidden=false;setTimeout(()=>$("edName").focus(),0);
   }
@@ -617,9 +618,8 @@ function makeDb(){
   function renderEditorSeats(){
     document.querySelectorAll("#edSeats [data-row]").forEach(r=>{const id=r.dataset.row,gone=ED.remove.has(id);r.classList.toggle("gone",gone);
       const b=r.querySelector("[data-edseat]");b.textContent=gone?"↺":"✕";b.setAttribute("aria-label",(gone?"Keep ":"Remove ")+id)});
-    let tot=0;document.querySelectorAll("#edSeats [data-edfare]").forEach(i=>{if(!ED.remove.has(i.dataset.edfare)&&i.value!=="")tot+=+i.value});
-    $("edTotal").textContent=tot?"Total "+money(tot):"";
-    const left=edList().length-ED.remove.size;
+    const left=edList().length-ED.remove.size,amt=+$("edAmount").value;
+    $("edTotal").textContent=amt>0&&left>0?`${left} ticket${left===1?"":"s"} · ${money(amt/left)} per ticket`:"";
     $("edSave").textContent=ED.remove.size?`Save (${ED.remove.size} removed)`:"Save";
     $("edMsg").innerHTML=left===0?`<div class="notice">All seats are marked for removal. Saving will delete this person.</div>`:"";
   }
@@ -628,7 +628,11 @@ function makeDb(){
     e.stopPropagation();
     if(e.target===$("edBack")||e.target.closest("#edClose,#edCancel")){closeEditor();return}
     const sb=e.target.closest("[data-edseat]");
-    if(sb){const id=sb.dataset.edseat;ED.remove.has(id)?ED.remove.delete(id):ED.remove.add(id);renderEditorSeats();return}
+    if(sb){const id=sb.dataset.edseat;ED.remove.has(id)?ED.remove.delete(id):ED.remove.add(id);
+      // total not typed over: follow the kept tickets' saved fares
+      if($("edAmount").value===ED.amount0){const sum=edList().filter(x=>!ED.remove.has(x.id)).reduce((t,x)=>t+(fareOf(x)||0),0);
+        ED.amount0=sum?String(Math.round(sum*100)/100):"";$("edAmount").value=ED.amount0}
+      renderEditorSeats();return}
     const rb=e.target.closest("[data-edrefund]");if(rb){ED.refund=rb.dataset.edrefund;setEdRefund();return}
     if(e.target.closest("#edDelete")){
       const list=edList(),ids=list.map(s=>s.id);if(!ids.length)return;
@@ -650,7 +654,9 @@ function makeDb(){
       for(const s of list){
         if(ED.remove.has(s.id)){await db.collection("seats").doc(s.id).delete();continue}
         const pv=(document.querySelector(`[data-edpass="${s.id}"]`)||{}).value??s.passenger??"";
-        const fvRaw=(document.querySelector(`[data-edfare="${s.id}"]`)||{}).value??"";const fv=fvRaw===""?null:+fvRaw;
+        // total changed: split it evenly over the tickets being kept; otherwise keep each ticket's fare
+        const amtRaw=$("edAmount").value,kept=list.length-ED.remove.size;
+        const fv=amtRaw!==ED.amount0?(amtRaw===""?null:Math.round(+amtRaw/kept*100)/100):fareOf(s);
         if(s.buyer!==name||(s.elx||"")!==elx||(s.passenger||"")!==pv.trim()||fareOf(s)!==fv||(s.refund||"Non Refund")!==ED.refund){
           const {id:_i,...old}=s;await db.collection("seats").doc(s.id).set({...old,buyer:name,elx,passenger:pv.trim(),fare:fv,refund:ED.refund,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()})}
       }
