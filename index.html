@@ -188,6 +188,11 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
   padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}}
 .trash{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:6px;margin-left:6px;border-radius:6px;display:grid;place-items:center}
 .trash:hover{color:var(--ink);background:var(--card)}
+/* search in Who bought what */
+.searchbox{position:relative;margin-top:12px}
+.searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.searchbox input{padding-left:40px}
+.match{background:var(--booked);color:var(--booked-ink);border-radius:3px;padding:0 1px}
 /* totals (top right) */
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stat{background:var(--card-low);border:1.5px solid var(--green);border-radius:10px;padding:14px 10px;text-align:center;display:grid;gap:4px}
@@ -285,6 +290,10 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
     <div class="pop detail" id="info" role="dialog" aria-label="Seat details" hidden></div>
     <section class="panel">
       <div class="top"><h2>Who bought what</h2><span class="sub">Max 4 per person</span></div>
+      <div class="searchbox">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 0 1 6.32 12.9l5.39 5.4-1.41 1.4-5.4-5.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>
+        <input id="bSearch" type="search" placeholder="Search name, ELX ID, seat or coach" aria-label="Search who bought what" autocomplete="off">
+      </div>
       <div id="buyers"></div>
     </section>
   </aside>
@@ -654,7 +663,11 @@ function makeDb(){
     $("buyerList").innerHTML=[...g.values()].map(b=>`<option value="${esc(b.name)}">`).join("");
     if(!g.size){box.innerHTML=`<div class="sub">Nobody yet. Tap the seats you got on the map, enter who bought them, then <b>Save seats</b>.</div>`;return}
     const added=s=>+(s.createdAt??s.updatedAt??0);const latest=b=>Math.max(0,...b.list.map(added));
-    box.innerHTML=[...g.values()].sort((a,b)=>latest(b)-latest(a)||a.name.localeCompare(b.name)).map(b=>{
+    const q=norm($("bSearch").value);
+    const hay=b=>norm([b.name,b.elx,...b.list.flatMap(s=>[s.id,"coach "+s.coach,s.coach,s.seatClass,s.elx])].join(" "));
+    const shown=[...g.values()].filter(b=>!q||hay(b).includes(q));
+    if(!shown.length){box.innerHTML=`<div class="sub" style="padding:12px 0">No one matches “${esc($("bSearch").value.trim())}”.</div>`;return}
+    box.innerHTML=shown.sort((a,b)=>latest(b)-latest(a)||a.name.localeCompare(b.name)).map(b=>{
       const n=b.list.length,cls=n>MAX?"over":n===MAX?"full":"";
       let p="";for(let i=0;i<Math.max(MAX,n);i++)p+=`<i class="${i<n?"on":""}"></i>`;
       const fr=S.focus&&seatMap().get(S.focus),hl=fr&&norm(fr.buyer)===norm(b.name);
@@ -688,6 +701,7 @@ function makeDb(){
 
   $("sheetForm").addEventListener("submit",e=>{e.preventDefault();saveSeats()});
   $("sheetForm").addEventListener("input",renderSheet);
+  $("bSearch").addEventListener("input",renderBuyers);
   $("sBuyer").addEventListener("change",()=>{const k=norm($("sBuyer").value);const s=S.seats.find(x=>norm(x.buyer)===k&&x.elx);if(s&&!$("sElx").value)$("sElx").value=s.elx;renderSheet()});
   $("clearSel").addEventListener("click",()=>{S.sel.clear();render()});
   $("coachSel").addEventListener("change",e=>{S.coach=e.target.value;S.sel.clear();S.focus=null;render()});
