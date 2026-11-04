@@ -85,6 +85,17 @@ h2{font-size:20px;font-weight:700;margin:0}
 
 /* coach select + legend */
 .label{font-size:20px;font-weight:700;margin:0 0 8px}
+.coachhead{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:8px}
+.coachhead .label{margin:0}
+.seat small.none{opacity:.55;font-style:italic}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+.prow:last-child{border-bottom:0}
+.prow .pn{font-weight:700}
+.prow .pn.none{color:var(--muted);font-weight:500;font-style:italic}
+.prow .pc{font-size:12px;color:var(--muted)}
+.prow .pc b{color:var(--booked);font-weight:600}
+.prow .pr{display:flex;align-items:center;gap:6px}
+.prow.hl{background:var(--card-low);margin:0 -10px;padding-inline:10px;border-radius:10px;box-shadow:inset 3px 0 0 var(--booked)}
 .selectbox{position:relative}
 .selectbox select{width:100%;appearance:none;-webkit-appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 44px 12px 20px;font-size:22px;font-weight:700;color:var(--booked);cursor:pointer}
 .selectbox::after{content:"";position:absolute;right:18px;top:50%;width:10px;height:10px;border-right:2px solid var(--booked);border-bottom:2px solid var(--booked);transform:translateY(-70%) rotate(45deg);pointer-events:none}
@@ -298,7 +309,13 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
   </form>
 
   <section>
-    <p class="label">Select Coach</p>
+    <div class="coachhead">
+      <p class="label">Select Coach</p>
+      <div class="seg" role="radiogroup" aria-label="Show names of" id="viewToggle">
+        <button type="button" role="radio" data-view="captain" aria-checked="true">Captain</button>
+        <button type="button" role="radio" data-view="passenger" aria-checked="false">Passenger</button>
+      </div>
+    </div>
     <div class="selectbox"><select id="coachSel" aria-label="Coach"></select></div>
     <div class="coachrow"><button class="linkbtn" type="button" id="addCoachBtn">+ Add coach</button><span class="sub" id="coachHint"></span></div>
     <form class="panel" id="coachForm" hidden style="margin-top:8px">
@@ -327,7 +344,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
     </div>
     <div class="pop detail" id="info" role="dialog" aria-label="Seat details" hidden></div>
     <section class="panel">
-      <div class="top"><h2>Who bought what</h2>
+      <div class="top"><h2 id="listTitle">Who bought what</h2>
         <button class="btn small xl" type="button" id="exportXlsx"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M5 20h14v-2H5v2zm7-3 5-5-1.41-1.41L13 13.17V4h-2v9.17l-2.59-2.58L7 12l5 5z"/></svg>Export to Excel</button></div>
       <div class="searchbox">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 0 1 6.32 12.9l5.39 5.4-1.41 1.4-5.4-5.39A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>
@@ -473,6 +490,7 @@ function makeDb(){
   const S={classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true,refund:"Non Refund",pass:{},passKey:""};
   const money=n=>"৳"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
   const fareOf=s=>Number.isFinite(+s.fare)&&s.fare!==null&&s.fare!==""?+s.fare:null;
+  let VIEW="captain";try{if(localStorage.getItem("ticketView")==="passenger")VIEW="passenger"}catch(_){}
   const SERVICE=20; // service charge added to every ticket
   function suggestFor(seats){ // [{seatClass}] -> {total, text} or null when a class has no fare
     const fares=seats.map(s=>(S.classes.find(c=>c.id===s.seatClass)||{}).fare);
@@ -493,7 +511,7 @@ function makeDb(){
     t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,action?7000:2600)}
   // highlight the focused seat's buyer in the right panel and bring it into view
   function revealBuyer(){
-    const el=document.querySelector(".buyer.hl");if(!el)return;
+    const el=document.querySelector(".buyer.hl,.prow.hl");if(!el)return;
     const panel=$("buyers");
     if(innerWidth>=980&&panel){const pr=panel.getBoundingClientRect(),er=el.getBoundingClientRect();
       if(er.top<pr.top||er.bottom>pr.bottom)panel.scrollTop+=er.top-pr.top-60}
@@ -569,7 +587,7 @@ function makeDb(){
         if(n==="aisle"||n==null){h+=`<span></span>`;continue}
         const id=seatId(c.id,n),rec=m.get(id),sel=S.sel.has(id);
         const cls=sel?"sel":rec?"booked":"";
-        h+=rec?`<button type="button" class="seat booked ${S.focus===id?"focus":""}" data-seat="${id}" aria-label="${id} booked by ${esc(rec.buyer)}">${id}<small>${esc(rec.buyer)}</small></button>`
+        h+=rec?`<button type="button" class="seat booked ${S.focus===id?"focus":""}" data-seat="${id}" aria-label="${id} booked by ${esc(rec.buyer)}${rec.passenger?", passenger "+esc(rec.passenger):""}">${id}${VIEW==="passenger"?(rec.passenger?`<small>${esc(rec.passenger)}</small>`:`<small class="none">no name</small>`):`<small>${esc(rec.buyer)}</small>`}</button>`
           :`<button type="button" class="seat ${cls}" data-seat="${id}" aria-pressed="${sel}" aria-label="${id} available">${id}</button>`;
       }
     }
@@ -776,6 +794,21 @@ function makeDb(){
     const added=s=>+(s.createdAt??s.updatedAt??0);const latest=b=>Math.max(0,...b.list.map(added));
     const q=norm($("bSearch").value);
     const hay=b=>norm([b.name,b.elx,...b.list.flatMap(s=>[s.id,"coach "+s.coach,s.coach,s.seatClass,s.elx,s.passenger,refundLabel(s.refund)])].join(" "));
+    document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-checked",String(b.dataset.view===VIEW)));
+    $("listTitle").textContent=VIEW==="passenger"?"Passengers":"Who bought what";
+    $("bSearch").placeholder=VIEW==="passenger"?"Search passenger, captain or seat":"Search name, ELX ID, seat or coach";
+    if(VIEW==="passenger"){
+      const list=S.seats.filter(s=>!q||norm([s.passenger,s.buyer,s.elx,s.id,"coach "+s.coach,s.coach,s.seatClass].join(" ")).includes(q))
+        .sort((a,b)=>a.coach.localeCompare(b.coach)||(+a.seat||0)-(+b.seat||0));
+      if(!list.length){box.innerHTML=`<div class="sub" style="padding:12px 0">No one matches “${esc($("bSearch").value.trim())}”.</div>`;return}
+      const named=S.seats.filter(s=>s.passenger).length;
+      box.innerHTML=`<div class="sub" style="padding:4px 0 6px">${named} of ${S.seats.length} tickets have a passenger name</div>`+list.map(s=>`<div class="prow${S.focus===s.id?" hl":""}">
+        <div style="min-width:0"><div class="pn${s.passenger?"":" none"}">${s.passenger?esc(s.passenger):"No passenger name"}</div>
+          <div class="pc">Captain <b>${esc(s.buyer)}</b> · ${esc(s.seatClass)}${fareOf(s)!=null?" · "+money(fareOf(s)):""}</div></div>
+        <div class="pr"><button type="button" class="chip${S.focus===s.id?" on":""}" style="border:0;cursor:pointer" data-goto="${esc(s.id)}">${esc(s.id)}</button>
+          ${S.canWrite&&db?`<button type="button" class="trash" data-editbuyer="${esc(norm(s.buyer))}" aria-label="Edit ${esc(s.buyer)}'s tickets" title="Edit"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>`:""}</div></div>`).join("");
+      return;
+    }
     const shown=[...g.values()].filter(b=>!q||hay(b).includes(q));
     if(!shown.length){box.innerHTML=`<div class="sub" style="padding:12px 0">No one matches “${esc($("bSearch").value.trim())}”.</div>`;return}
     box.innerHTML=shown.sort((a,b)=>latest(b)-latest(a)||a.name.localeCompare(b.name)).map(b=>{
@@ -881,6 +914,7 @@ function makeDb(){
       if(!S.canWrite||!db)return;
       if(S.sel.has(id)){S.sel.delete(id);S.lastSel=[...S.sel].pop()}else{S.sel.add(id);S.lastSel=id}
       S.focus=null;S.editing=false;render();return}
+    if(t.dataset.view){VIEW=t.dataset.view;try{localStorage.setItem("ticketView",VIEW)}catch(_){}renderMap();renderBuyers();return}
     if(t.dataset.refund){S.refund=t.dataset.refund;renderSheet();return}
     if(t.id==="useSuggest"){S.amountTouched=false;renderSheet();return}
     if(t.dataset.erefund){document.querySelectorAll("[data-erefund]").forEach(b=>b.setAttribute("aria-checked",String(b===t)));return}
