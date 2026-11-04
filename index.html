@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0f5132">
 </head>
 <body>
 <title>Group Ticket Desk</title>
@@ -92,7 +96,7 @@ h2{font-size:20px;font-weight:700;margin:0}
 .map{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:28px 12px;margin-top:14px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,62px)) minmax(16px,104px) repeat(2,minmax(0,62px));column-gap:20px;row-gap:22px;justify-content:center}
 .seat{aspect-ratio:1;width:100%;border-radius:16px;border:1.5px solid var(--avail-line);background:var(--avail);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;padding:0;display:grid;place-items:center;line-height:1.1;text-align:center;position:relative}
-.seat small{display:block;font-size:9px;font-weight:500;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.95}
+.seat small{display:block;font-size:11px;font-weight:500;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.95}
 .seat.booked{background:var(--booked);border-color:var(--booked);color:var(--booked-ink)}
 .seat.prog{background:var(--prog);border-color:var(--prog);color:var(--prog-ink)}
 .seat.sel{background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
@@ -158,7 +162,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 @media (max-width:600px){.pop,.pop.detail{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;border-radius:18px 18px 0 0;
   padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}}
 .trash{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:6px;margin-left:6px;border-radius:6px;display:grid;place-items:center}
-.trash:hover{color:var(--warn);background:var(--warn-bg)}
+.trash:hover{color:var(--ink);background:var(--card)}
 /* totals (top right) */
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stat{background:var(--card-low);border:1.5px solid var(--green);border-radius:10px;padding:14px 10px;text-align:center;display:grid;gap:4px}
@@ -175,6 +179,15 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .cf-seats{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
 .cf-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
 .cf-actions .btn{width:100%}
+#cfBack{z-index:50}
+.cf.ed{text-align:left;width:min(440px,100%);gap:16px}
+.ed-seats{display:flex;flex-wrap:wrap;gap:6px}
+.ed-seat{display:inline-flex;align-items:center;gap:2px;font-size:13px;font-weight:700;border-radius:8px;padding:4px 4px 4px 10px;background:var(--booked);color:var(--booked-ink)}
+.ed-seat button{border:0;background:transparent;color:inherit;cursor:pointer;width:24px;height:24px;border-radius:6px;font-size:14px;line-height:1}
+.ed-seat button:hover{background:rgba(0,0,0,.15)}
+.ed-seat.gone{background:transparent;color:var(--muted);border:1px dashed var(--line);text-decoration:line-through}
+.ed-seat.gone button{text-decoration:none}
+.ed-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
 .cnt.full{color:var(--booked)} .cnt.over{color:var(--warn)}
 .pips{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
 .pips i{width:10px;height:10px;border-radius:3px;background:var(--card)}
@@ -271,6 +284,26 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
   </form>
 </div>
 <div class="backdrop" id="popBack" hidden></div>
+<div class="cf-back" id="edBack" hidden>
+  <form class="cf ed" id="edForm" role="dialog" aria-modal="true" aria-labelledby="edTitle" autocomplete="off">
+    <div class="pop-head"><h3 id="edTitle">Edit</h3>
+      <button class="iconbtn" type="button" id="edClose" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg></button>
+    </div>
+    <div class="two">
+      <label for="edName">Name<input id="edName" maxlength="60" required></label>
+      <label for="edElx">ELX ID<input id="edElx" maxlength="40" placeholder="ELX ID"></label>
+    </div>
+    <div>
+      <div class="eyebrow" style="margin-bottom:6px">Seats <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:500">· tap ✕ to remove a seat</span></div>
+      <div class="ed-seats" id="edSeats"></div>
+    </div>
+    <div id="edMsg"></div>
+    <div class="ed-foot">
+      <button class="rmbtn" type="button" id="edDelete"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>Delete all</button>
+      <span class="row"><button class="btn ghost small" type="button" id="edCancel">Cancel</button><button class="btn small" type="submit" id="edSave">Save</button></span>
+    </div>
+  </form>
+</div>
 <div class="cf-back" id="cfBack" hidden>
   <div class="cf" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle" aria-describedby="cfBody">
     <div class="cf-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></div>
@@ -451,6 +484,57 @@ function makeDb(){
     const panel=box.closest(".right");if(panel&&innerWidth>=980)panel.scrollTop=0;
     else{const r=box.getBoundingClientRect();if(r.top<0||r.top>innerHeight-80)box.scrollIntoView({behavior:"smooth",block:"nearest"})}
   }
+  // ---------- person editor popup ----------
+  const ED={key:null,remove:new Set()};
+  const edList=()=>S.seats.filter(s=>norm(s.buyer)===ED.key).sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true}));
+  function openEditor(key){
+    const list=S.seats.filter(s=>norm(s.buyer)===key);if(!list.length)return;
+    ED.key=key;ED.remove=new Set();ED.prev=document.activeElement;
+    $("edTitle").textContent="Edit "+list[0].buyer;$("edName").value=list[0].buyer;
+    $("edElx").value=(list.find(s=>s.elx)||{}).elx||"";$("edMsg").innerHTML="";
+    renderEditorSeats();$("edBack").hidden=false;setTimeout(()=>$("edName").focus(),0);
+  }
+  function renderEditorSeats(){
+    $("edSeats").innerHTML=edList().map(s=>{const gone=ED.remove.has(s.id);
+      return `<span class="ed-seat${gone?" gone":""}" title="${esc(s.seatClass)}">${esc(s.id)}<button type="button" data-edseat="${esc(s.id)}" aria-label="${gone?"Keep":"Remove"} ${esc(s.id)}">${gone?"↺":"✕"}</button></span>`}).join("");
+    const left=edList().length-ED.remove.size;
+    $("edSave").textContent=ED.remove.size?`Save (${ED.remove.size} removed)`:"Save";
+    $("edMsg").innerHTML=left===0?`<div class="notice">All seats are marked for removal. Saving will delete this person.</div>`:"";
+  }
+  function closeEditor(){$("edBack").hidden=true;ED.key=null;ED.prev&&ED.prev.focus&&ED.prev.focus()}
+  $("edBack").addEventListener("click",async e=>{
+    e.stopPropagation();
+    if(e.target===$("edBack")||e.target.closest("#edClose,#edCancel")){closeEditor();return}
+    const sb=e.target.closest("[data-edseat]");
+    if(sb){const id=sb.dataset.edseat;ED.remove.has(id)?ED.remove.delete(id):ED.remove.add(id);renderEditorSeats();return}
+    if(e.target.closest("#edDelete")){
+      const list=edList(),ids=list.map(s=>s.id);if(!ids.length)return;
+      const ok=await askConfirm({title:`Delete ${list[0].buyer}?`,body:`All ${ids.length} seat(s) saved for <b>${esc(list[0].buyer)}</b> will be removed and show as available again.`,seats:ids,okText:ids.length===1?"Delete 1 seat":`Delete ${ids.length} seats`});
+      if(!ok)return;closeEditor();
+      try{for(const id of ids)await db.collection("seats").doc(id).delete();toast(ids.length+" seat(s) deleted")}catch(err){writeErr(err)}
+      if(ids.includes(S.focus))S.focus=null;render();
+    }
+  });
+  addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("edBack").hidden&&$("cfBack").hidden){e.stopImmediatePropagation();closeEditor()}},true);
+  $("edForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const list=edList();if(!list.length){closeEditor();return}
+    const name=$("edName").value.trim().replace(/\s+/g," "),elx=$("edElx").value.trim();
+    if(!name){$("edMsg").innerHTML=`<div class="notice">Enter a name.</div>`;return}
+    const keep=list.filter(s=>!ED.remove.has(s.id));
+    if(norm(name)!==ED.key){const other=buyerCount(name);
+      if(other+keep.length>MAX){$("edMsg").innerHTML=`<div class="notice">${esc(name)} already has ${other} ticket(s). Together that would be ${other+keep.length}, over the limit of ${MAX}.</div>`;return}}
+    $("edSave").disabled=true;
+    try{
+      for(const s of list){
+        if(ED.remove.has(s.id)){await db.collection("seats").doc(s.id).delete();continue}
+        if(s.buyer!==name||(s.elx||"")!==elx){const {id:_i,...old}=s;await db.collection("seats").doc(s.id).set({...old,buyer:name,elx,updatedAt:Date.now()})}
+      }
+      toast(ED.remove.size?`Saved · ${ED.remove.size} seat(s) removed`:"Saved");
+      if(ED.remove.has(S.focus))S.focus=null;closeEditor();
+    }catch(err){writeErr(err)}
+    $("edSave").disabled=false;render();
+  });
   // centered "are you sure?" dialog; resolves true only when the red button is pressed
   function askConfirm({title,body,seats,okText}){
     return new Promise(resolve=>{
@@ -527,7 +611,7 @@ function makeDb(){
       let p="";for(let i=0;i<Math.max(MAX,n);i++)p+=`<i class="${i<n?"on":""}"></i>`;
       const fr=S.focus&&seatMap().get(S.focus),hl=fr&&norm(fr.buyer)===norm(b.name);
       return `<div class="buyer${hl?" hl":""}"><div><div class="nm">${esc(b.name)}</div><div class="coachline">${[...new Set(b.list.map(s=>"Coach "+s.coach+" · "+s.seatClass))].map(esc).join("<br>")}</div><div class="sub num">${b.elx?"ELX ID "+esc(b.elx):""}</div></div>
-        <div class="cnt ${cls} num">${n} / ${MAX}<span class="pips">${p}</span>${S.canWrite&&db?`<button type="button" class="trash" data-delbuyer="${esc(norm(b.name))}" aria-label="Delete ${esc(b.name)}'s seats" title="Delete"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg></button>`:""}</div>
+        <div class="cnt ${cls} num">${n} / ${MAX}<span class="pips">${p}</span>${S.canWrite&&db?`<button type="button" class="trash" data-editbuyer="${esc(norm(b.name))}" aria-label="Edit ${esc(b.name)}" title="Edit"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>`:""}</div>
         <div class="seats">${b.list.sort((x,y)=>x.id.localeCompare(y.id,undefined,{numeric:true})).map(s=>`<button type="button" class="chip${S.focus===s.id?" on":""}" style="border:0;cursor:pointer" data-goto="${esc(s.id)}" title="${esc(s.seatClass)}">${esc(s.id)}</button>`).join("")}</div></div>`;
     }).join("");
   }
@@ -590,6 +674,7 @@ function makeDb(){
       try{await db.collection("seats").doc(rec.id).delete();
         toast(`${rec.id} deleted (${rec.buyer})`,{label:"Undo",fn:async()=>{try{await db.collection("seats").doc(rec.id).set(old);toast(rec.id+" restored")}catch(err){writeErr(err)}}});
       }catch(err){writeErr(err)}return}
+    if(t.dataset.editbuyer){openEditor(t.dataset.editbuyer);return}
     if(t.dataset.delbuyer){const k=t.dataset.delbuyer;const list=S.seats.filter(s=>norm(s.buyer)===k);if(!list.length)return;
       const ids=list.map(s=>s.id).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
       const ok=await askConfirm({title:`Delete ${list[0].buyer}?`,body:`All ${ids.length} seat(s) saved for <b>${esc(list[0].buyer)}</b> will be removed and show as available again.`,seats:ids,okText:ids.length===1?"Delete 1 seat":`Delete ${ids.length} seats`});
