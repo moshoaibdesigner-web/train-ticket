@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Group Ticket Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: mirrors the booking site — class cards on top, coach dropdown + legend, seat map; a bottom sheet records who bought the selected seats */
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --card:#d9e2df; --card-low:#c7d3cf; --line:#dfe5e3;
+  --ink:#1c2430; --muted:#5d6b66; --green:#0f5132; --green-ink:#ffffff; --price:#0f5132;
+  --booked:#d97319; --booked-ink:#ffffff; --sel:#2c3a5c; --sel-ink:#ffffff; --prog:#4e8f00; --prog-ink:#ffffff;
+  --avail:#ffffff; --avail-line:#2c3a5c; --warn:#c0261c; --warn-bg:#fdecea;
+  --f:"Roboto",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1513; --surface:#18201d; --card:#22302b; --card-low:#1c2824; --line:#2c3a35;
+  --ink:#e6ece9; --muted:#9aaba4; --green:#2f8f62; --green-ink:#ffffff; --price:#6fd1a0;
+  --booked:#e58a37; --booked-ink:#1a0d02; --sel:#8fa6e0; --sel-ink:#0d1424; --prog:#7cc23a; --prog-ink:#0c1702;
+  --avail:#18201d; --avail-line:#8fa6e0; --warn:#ff8a80; --warn-bg:#3a1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --surface:#18201d; --card:#22302b; --card-low:#1c2824; --line:#2c3a35;
+  --ink:#e6ece9; --muted:#9aaba4; --green:#2f8f62; --green-ink:#ffffff; --price:#6fd1a0;
+  --booked:#e58a37; --booked-ink:#1a0d02; --sel:#8fa6e0; --sel-ink:#0d1424; --prog:#7cc23a; --prog-ink:#0c1702;
+  --avail:#18201d; --avail-line:#8fa6e0; --warn:#ff8a80; --warn-bg:#3a1c1a; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 160px}
+.wrap{max-width:720px;margin:0 auto;display:grid;gap:18px}
+.left{display:grid;gap:18px;min-width:0}
+.right{min-width:0}
+@media (min-width:980px){.wrap{max-width:1180px;grid-template-columns:minmax(0,1fr) 380px;align-items:start;gap:24px}
+  .right{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow-y:auto}}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+h2{font-size:20px;font-weight:700;margin:0}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.status{font-size:12px;color:var(--muted)}
+.status.bad{color:var(--warn)}
+
+/* journeys */
+.trips{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trip{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 14px;text-align:left;display:grid;gap:2px;cursor:pointer}
+.trip .route{font-size:18px;font-weight:900}
+.trip .arr{color:var(--booked)}
+.trip .tmeta{font-size:13px;color:var(--muted);font-weight:500}
+.trip[aria-selected="true"]{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.trip[aria-selected="true"] .tmeta{color:var(--price);font-weight:700}
+.trip:disabled{opacity:.5;cursor:not-allowed;border-style:dashed}
+@media (max-width:420px){.trip .route{font-size:16px}}
+
+/* class cards */
+.classes{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 16px}
+.cls{flex:0 0 150px;border:0;border-radius:10px;background:var(--card);text-align:left;padding:0;cursor:pointer;position:relative;display:flex;flex-direction:column;overflow:visible}
+.cls .h{padding:12px 12px 8px}
+.cls .n{font-size:19px;font-weight:900;letter-spacing:.01em;display:block}
+.cls .p{font-size:20px;font-weight:700;color:var(--price);display:block}
+.cls .vat{font-size:11px;font-weight:700;display:block;min-height:15px}
+.cls .b{background:var(--card-low);padding:8px 12px 12px;border-radius:0 0 10px 10px;flex:1}
+.cls .l{font-size:13px;display:block}
+.cls .c{font-size:20px;font-weight:700;color:var(--price);display:block}
+.cls .pr{font-size:12px;color:var(--prog);font-weight:600;min-height:16px;display:block}
+.cls[aria-pressed="true"]{background:var(--green);color:var(--green-ink);box-shadow:0 0 0 2px var(--green)}
+.cls[aria-pressed="true"] .p,.cls[aria-pressed="true"] .c{color:var(--green-ink)}
+.cls[aria-pressed="true"] .b{background:var(--surface);color:var(--ink)}
+.cls[aria-pressed="true"] .b .c{color:var(--price)}
+.cls[aria-pressed="true"]::after{content:"";position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);border:11px solid transparent;border-bottom:0;border-top-color:var(--green)}
+.cls.add{flex-basis:110px;background:transparent;border:1.5px dashed var(--line);display:grid;place-items:center;color:var(--muted);font-weight:700;font-size:14px}
+
+/* coach select + legend */
+.label{font-size:20px;font-weight:700;margin:0 0 8px}
+.selectbox{position:relative}
+.selectbox select{width:100%;appearance:none;-webkit-appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 44px 12px 20px;font-size:22px;font-weight:700;color:var(--booked);cursor:pointer}
+.selectbox::after{content:"";position:absolute;right:18px;top:50%;width:10px;height:10px;border-right:2px solid var(--booked);border-bottom:2px solid var(--booked);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.coachrow{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.legend{display:flex;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;font-size:12px;margin-top:12px}
+.legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.legend i{width:20px;height:20px;border-radius:5px;display:inline-block}
+.lg-a i{background:var(--avail);border:1.5px solid var(--avail-line)} .lg-a{color:var(--ink)}
+.lg-s i{background:var(--sel)}
+.lg-p i{background:var(--prog)} .lg-p{color:var(--prog)}
+.lg-b i{background:var(--booked)} .lg-b{color:var(--booked)}
+
+/* seat map */
+.map{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:28px 12px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,62px)) minmax(16px,104px) repeat(2,minmax(0,62px));column-gap:20px;row-gap:22px;justify-content:center}
+.seat{aspect-ratio:1;width:100%;border-radius:16px;border:1.5px solid var(--avail-line);background:var(--avail);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;padding:0;display:grid;place-items:center;line-height:1.1;text-align:center;position:relative}
+.seat small{display:block;font-size:9px;font-weight:500;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.95}
+.seat.booked{background:var(--booked);border-color:var(--booked);color:var(--booked-ink)}
+.seat.prog{background:var(--prog);border-color:var(--prog);color:var(--prog-ink)}
+.seat.sel{background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
+.seat.focus{outline:3px solid var(--sel);outline-offset:2px}
+.gap{grid-column:1/-1;height:40px}
+.grid.g3{grid-template-columns:repeat(3,minmax(0,62px))}
+@media (max-width:420px){.grid{column-gap:12px;row-gap:16px}.seat{border-radius:13px;font-size:11px}}
+.emptymap{text-align:center;color:var(--muted);padding:24px 8px}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:22px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;background:var(--green);color:var(--green-ink);text-transform:uppercase;letter-spacing:.02em}
+.btn.prog{background:var(--prog);color:var(--prog-ink)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.danger{background:var(--warn);color:var(--surface)}
+.btn.small{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input,select.plain{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:15px}
+label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.three{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
+@media (max-width:480px){.three{grid-template-columns:1fr 1fr}.three>:first-child{grid-column:1/-1}}
+.notice{font-size:13px;border-radius:6px;padding:8px 10px;background:var(--warn-bg);color:var(--warn)}
+.chip{font-size:12px;font-weight:700;border-radius:6px;padding:3px 7px;background:var(--booked);color:var(--booked-ink);white-space:nowrap}
+.chip.prog{background:var(--prog);color:var(--prog-ink)}
+.chip.sel{background:var(--sel);color:var(--sel-ink)}
+
+/* bottom sheet */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgba(0,0,0,.12);
+  padding:14px max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet .in{max-width:720px;margin:0 auto;display:grid;gap:10px}
+.sheet .chips{display:flex;flex-wrap:wrap;gap:4px}
+
+/* buyers */
+.buyer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.buyer:last-child{border-bottom:0}
+.buyer .nm{font-weight:700}
+.coachline{font-size:13px;font-weight:500;color:var(--booked)}
+.buyer .seats{display:flex;flex-wrap:wrap;gap:4px;grid-column:1/-1}
+.cnt{font-weight:700;font-size:14px;text-align:right;white-space:nowrap}
+.cnt.full{color:var(--booked)} .cnt.over{color:var(--warn)}
+.pips{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
+.pips i{width:10px;height:10px;border-radius:3px;background:var(--card)}
+.pips i.on{background:var(--green)}
+.cnt.full .pips i.on{background:var(--booked)} .cnt.over .pips i.on{background:var(--warn)}
+.sub{font-size:12px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;font-weight:500;z-index:30;max-width:calc(100% - 32px)}
+.linkbtn{background:none;border:0;color:var(--green);font-weight:700;cursor:pointer;font-size:13px;padding:4px;text-decoration:underline;text-underline-offset:3px}
+</style>
+
+<div class="wrap">
+ <div class="left">
+  <div class="trips" role="tablist" aria-label="Journey">
+    <button type="button" class="trip" role="tab" aria-selected="true">
+      <span class="route">Dhaka <span class="arr">→</span> Sylhet</span>
+      <span class="tmeta">14.11.2026 · Parabat Express</span>
+    </button>
+    <button type="button" class="trip" role="tab" aria-selected="false" disabled title="Return date not set yet">
+      <span class="route">Sylhet <span class="arr">→</span> Dhaka</span>
+      <span class="tmeta">Date to be announced</span>
+    </button>
+  </div>
+  <div class="top">
+    <h2>Select Class</h2>
+    <span class="status" id="status">Connecting…</span>
+  </div>
+
+  <div class="classes" id="classes" role="group" aria-label="Class"></div>
+
+  <form class="panel" id="classForm" hidden>
+    <div class="two">
+      <label for="cName">Class name<input id="cName" maxlength="20" placeholder="SHOVAN" required></label>
+      <label for="cFare">Fare (৳)<input id="cFare" type="number" min="0" placeholder="350"></label>
+    </div>
+    <div class="row"><button class="btn" type="submit">Add class</button><button class="btn ghost" type="button" data-close="classForm">Cancel</button></div>
+  </form>
+
+  <section>
+    <p class="label">Select Coach</p>
+    <div class="selectbox"><select id="coachSel" aria-label="Coach"></select></div>
+    <div class="coachrow"><button class="linkbtn" type="button" id="addCoachBtn">+ Add coach</button><span class="sub" id="coachHint"></span></div>
+    <form class="panel" id="coachForm" hidden style="margin-top:8px">
+      <div class="two">
+        <label for="kName">Coach name<input id="kName" maxlength="12" placeholder="KA" required></label>
+        <label for="kSeats">Number of seats<input id="kSeats" type="number" min="1" max="120" value="55" required></label>
+      </div>
+      <div class="row"><button class="btn" type="submit">Add coach</button><button class="btn ghost" type="button" data-close="coachForm">Cancel</button></div>
+    </form>
+    <div class="legend">
+      <span class="lg-a"><i></i>Available</span>
+      <span class="lg-s"><i></i>Selected</span>
+      <span class="lg-b"><i></i>Booked</span>
+    </div>
+    <div class="map" id="map"><div class="emptymap">Loading seats…</div></div>
+  </section>
+
+  <section class="panel" id="info" hidden></section>
+ </div>
+
+  <section class="panel right">
+    <div class="top"><h2>Who bought what</h2><span class="sub">Max 4 per person</span></div>
+    <div id="buyers"></div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <form class="in" id="sheetForm" autocomplete="off">
+    <div class="row" style="justify-content:space-between"><b id="selCount">0 seat(s) selected</b><button class="linkbtn" type="button" id="clearSel">Clear</button></div>
+    <div class="chips" id="selChips"></div>
+    <div class="two">
+      <label for="sBuyer">Bought by<input id="sBuyer" list="buyerList" maxlength="60" placeholder="Name" required></label>
+      <label for="sElx">ELX ID<input id="sElx" maxlength="40" placeholder="ELX ID"></label>
+    </div>
+    <datalist id="buyerList"></datalist>
+    <div id="sheetMsg"></div>
+    <div class="row">
+      <button class="btn" type="submit" id="markBooked">Save seats</button>
+    </div>
+  </form>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+  const MAX=4;
+  const S={classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true};
+  let db=null,user=null,me=null;
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const norm=s=>String(s||"").trim().replace(/\s+/g," ").toLowerCase();
+  const slug=s=>String(s||"").trim().toUpperCase().replace(/[^A-Z0-9_-]/g,"");
+  const seatId=(coach,n)=>coach+"-"+n;
+  function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+  function setStatus(m,bad){$("status").textContent=m;$("status").classList.toggle("bad",!!bad)}
+
+  const seatMap=()=>{const m=new Map();for(const s of S.seats)m.set(s.id,s);return m};
+  const coachObj=()=>S.coaches.find(c=>c.id===S.coach);
+
+  // Layout like the site: 55 seats = 1,2 | 3 on row 1, then rows of 4, a gap after 27, last rows 52 | 53,54 and 55.
+  // AC_S cabin layout (33 seats, 3 across): cabins of 6 or 3 seats separated by gaps
+  const ACS=[[1,2,3],[4,5,6],"gap",[7,8,9],"gap",[10,11,12],[13,14,15],"gap",[16,17,18],[19,20,21],"gap",[22,23,24],"gap",[25,26,27],"gap",[28,29,30],[31,32,33]];
+  function layout(n,kind){
+    if(kind==="acs")return ACS;
+    if(kind==="ka")return [[1,null,null,null],[2,3,4,5],[6,7,8,9],[10,11,12,13],[14,null,null,15]];
+    if(kind==="schair"){ // 60 seats: 1 alone, 2 | 3,4, rows of 4 to 32, gap, rows of 4 to 56, 57,58 | 59, then 60
+      const r=[[1,null,null,null],[2,null,3,4]];
+      for(let s=5;s<=29;s+=4)r.push([s,s+1,s+2,s+3]);
+      r.push("gap");
+      for(let s=33;s<=53;s+=4)r.push([s,s+1,s+2,s+3]);
+      r.push([57,58,null,59]);r.push([null,null,null,60]);
+      return r;
+    }
+    const rows=[];
+    if(n===55){
+      rows.push([1,2,null,3]);
+      for(let s=4;s<=24;s+=4)rows.push([s,s+1,s+2,s+3]);
+      rows.push("gap");
+      for(let s=28;s<=48;s+=4)rows.push([s,s+1,s+2,s+3]);
+      rows.push([52,null,53,54]);rows.push([55,null,null,null]);
+      return rows;
+    }
+    for(let s=1;s<=n;s+=4)rows.push([s,s+1,s+2,s+3].map(x=>x<=n?x:null));
+    return rows;
+  }
+
+  // ---------- render ----------
+  function render(){renderClasses();renderCoachSel();renderMap();renderInfo();renderSheet();renderBuyers()}
+
+  function renderClasses(){
+    const cnt={},prog={};
+    for(const s of S.seats){const k=s.seatClass;cnt[k]=(cnt[k]||0)+1}
+    $("classes").innerHTML=S.classes.map(c=>`<button type="button" class="cls" data-cls="${esc(c.id)}" aria-pressed="${c.id===S.cls}">
+      <span class="h"><span class="n">${esc(c.name)}</span><span class="p num">${c.fare?"৳"+esc(c.fare):"&nbsp;"}</span><span class="vat">${c.vat?"Including VAT":""}</span></span>
+      <span class="b"><span class="l">Our seats</span><span class="c num">${cnt[c.id]||0}</span></span></button>`).join("")
+      +(S.canWrite&&db?`<button type="button" class="cls add" id="addClassBtn">+ Class</button>`:"");
+  }
+
+  function renderCoachSel(){
+    const list=S.coaches.filter(c=>c.seatClass===S.cls).sort((a,b)=>(a.order??99)-(b.order??99)||a.id.localeCompare(b.id));
+    if(!list.find(c=>c.id===S.coach))S.coach=list[0]?list[0].id:null;
+    const booked=id=>S.seats.filter(s=>s.coach===id).length;
+    $("coachSel").innerHTML=list.length?list.map(c=>`<option value="${esc(c.id)}"${c.id===S.coach?" selected":""}>${esc(c.id)} - ${booked(c.id)} Seat(s)</option>`).join(""):`<option value="">No coach yet</option>`;
+    $("coachHint").textContent=list.length?"Seat(s) = our seats in this coach":"Add the coach your seats are in";
+    $("addCoachBtn").hidden=!(S.canWrite&&db&&S.cls);
+  }
+
+  function renderMap(){
+    const c=coachObj();
+    if(!S.loaded){$("map").innerHTML=`<div class="emptymap">Loading seats…</div>`;return}
+    if(!c){$("map").innerHTML=`<div class="emptymap">No coach for this class yet. Tap <b>+ Add coach</b> above.</div>`;return}
+    const m=seatMap();
+    const three=c.layout==="acs";
+    let h=`<div class="grid${three?" g3":""}">`;
+    for(const r of layout(+c.seats||55,c.layout)){
+      if(r==="gap"){h+=`<div class="gap"></div>`;continue}
+      const cells=three?r:[r[0],r[1],"aisle",r[2],r[3]];
+      for(const n of cells){
+        if(n==="aisle"||n==null){h+=`<span></span>`;continue}
+        const id=seatId(c.id,n),rec=m.get(id),sel=S.sel.has(id);
+        const cls=sel?"sel":rec?"booked":"";
+        h+=`<button type="button" class="seat ${cls} ${S.focus===id?"focus":""}" data-seat="${id}" aria-label="${id}${rec?" bought by "+esc(rec.buyer):""}">${id}${rec&&!sel?`<small>${esc(rec.buyer)}</small>`:""}</button>`;
+      }
+    }
+    $("map").innerHTML=h+`</div>`;
+  }
+
+  function renderInfo(){
+    const rec=S.focus&&seatMap().get(S.focus);const box=$("info");
+    if(!rec){box.hidden=true;return}
+    box.hidden=false;
+    box.innerHTML=`<div class="row" style="justify-content:space-between"><div><span class="chip">${esc(rec.id)}</span> <b>Booked</b></div><button class="linkbtn" type="button" id="closeInfo">Close</button></div>
+      <div><div><span class="muted">Bought by</span> <b>${esc(rec.buyer)}</b></div>
+      ${rec.elx?`<div><span class="muted">ELX ID</span> <b class="num">${esc(rec.elx)}</b></div>`:""}
+      <div class="sub">${esc(rec.seatClass)} · ${rec.updatedAt?new Date(rec.updatedAt).toLocaleString(undefined,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""} <span id="addedBy"></span></div></div>
+      ${S.canWrite&&db?`<div class="row">${S.confirm?`<button class="btn danger small" type="button" id="infoFreeYes">Yes, remove</button><button class="btn ghost small" type="button" id="infoFreeNo">Keep</button>`
+          :`<button class="btn ghost small" type="button" id="infoFree">Remove (entered by mistake)</button>`}</div>`:""}`;
+    if(user&&user.profiles&&rec.addedBy)user.profiles([rec.addedBy]).then(p=>{const n=p&&p[rec.addedBy]&&p[rec.addedBy].name;const el=$("addedBy");if(n&&el)el.textContent="· added by "+n}).catch(()=>{});
+  }
+
+  function buyerCount(name,excludeIds){
+    const k=norm(name);return S.seats.filter(s=>norm(s.buyer)===k&&!(excludeIds&&excludeIds.has(s.id))).length;
+  }
+
+  function renderSheet(){
+    const show=S.sel.size>0&&S.canWrite;
+    $("sheet").hidden=!show; if(!show)return;
+    const ids=[...S.sel];
+    $("selCount").textContent=ids.length+" seat(s) selected";
+    $("selChips").innerHTML=ids.map(i=>`<span class="chip sel">${esc(i)}</span>`).join("");
+    const name=$("sBuyer").value.trim(); const msgs=[];
+    if(name){const have=buyerCount(name,S.sel);const tot=have+ids.length;
+      if(tot>MAX)msgs.push(`${name} already has ${have} ticket(s). With these ${ids.length} it would be ${tot}, over the limit of ${MAX}.`);}
+    $("sheetMsg").innerHTML=msgs.map(m=>`<div class="notice">${esc(m)}</div>`).join("");
+    const ok=!!name&&!msgs.length&&!!db;
+    $("markBooked").disabled=!ok;
+  }
+
+  function renderBuyers(){
+    const box=$("buyers");
+    if(!S.loaded){box.innerHTML=`<div class="sub">Loading…</div>`;return}
+    const g=new Map();
+    for(const s of S.seats){const k=norm(s.buyer);if(!g.has(k))g.set(k,{name:s.buyer,elx:s.elx,list:[]});const b=g.get(k);b.list.push(s);if(!b.elx&&s.elx)b.elx=s.elx}
+    $("buyerList").innerHTML=[...g.values()].map(b=>`<option value="${esc(b.name)}">`).join("");
+    if(!g.size){box.innerHTML=`<div class="sub">Nobody yet. Tap the seats you got on the map, enter who bought them, then <b>Save seats</b>.</div>`;return}
+    box.innerHTML=[...g.values()].sort((a,b)=>b.list.length-a.list.length||a.name.localeCompare(b.name)).map(b=>{
+      const n=b.list.length,cls=n>MAX?"over":n===MAX?"full":"";
+      let p="";for(let i=0;i<Math.max(MAX,n);i++)p+=`<i class="${i<n?"on":""}"></i>`;
+      return `<div class="buyer"><div><div class="nm">${esc(b.name)}</div><div class="coachline">${[...new Set(b.list.map(s=>"Coach "+s.coach+" · "+s.seatClass))].map(esc).join("<br>")}</div><div class="sub num">${b.elx?"ELX ID "+esc(b.elx):""}</div></div>
+        <div class="cnt ${cls} num">${n} / ${MAX}<span class="pips">${p}</span></div>
+        <div class="seats">${b.list.sort((x,y)=>x.id.localeCompare(y.id,undefined,{numeric:true})).map(s=>`<button type="button" class="chip" style="border:0;cursor:pointer" data-goto="${esc(s.id)}" title="${esc(s.seatClass)}">${esc(s.id)}</button>`).join("")}</div></div>`;
+    }).join("");
+  }
+
+  // ---------- actions ----------
+  async function saveSeats(){const status="booked";
+    const name=$("sBuyer").value.trim().replace(/\s+/g," ");if(!name||!db)return;
+    const ids=[...S.sel];const c=coachObj();const m=seatMap();
+    if(buyerCount(name,S.sel)+ids.length>MAX)return;
+    $("markBooked").disabled=true;
+    try{
+      for(const id of ids){
+        const old=m.get(id);
+        await db.collection("seats").doc(id).set({coach:old?old.coach:c.id,seat:+id.split("-").pop(),seatClass:old?old.seatClass:c.seatClass,status,
+          buyer:name,elx:$("sElx").value.trim(),addedBy:me||null,updatedAt:Date.now()});
+      }
+      toast(`${ids.length} seat(s) saved for ${name}`);
+      S.sel.clear();
+    }catch(e){writeErr(e)}
+    render();
+  }
+  function writeErr(e){
+    if(e&&e.code==="invalid_argument"){S.canWrite=false;setStatus("View only. Ask the owner for Contributor access to record seats.",true);S.sel.clear();render();return}
+    toast("Couldn't save. Check your connection and try again.");
+  }
+
+  $("sheetForm").addEventListener("submit",e=>{e.preventDefault();saveSeats()});
+  $("sheetForm").addEventListener("input",renderSheet);
+  $("sBuyer").addEventListener("change",()=>{const k=norm($("sBuyer").value);const s=S.seats.find(x=>norm(x.buyer)===k&&x.elx);if(s&&!$("sElx").value)$("sElx").value=s.elx;renderSheet()});
+  $("clearSel").addEventListener("click",()=>{S.sel.clear();render()});
+  $("coachSel").addEventListener("change",e=>{S.coach=e.target.value;S.sel.clear();S.focus=null;render()});
+  $("addCoachBtn").addEventListener("click",()=>{$("coachForm").hidden=!$("coachForm").hidden;$("kName").focus()});
+
+  document.addEventListener("click",async e=>{
+    const t=e.target.closest("button");if(!t)return;
+    if(t.dataset.close){$(t.dataset.close).hidden=true;return}
+    if(t.dataset.cls){S.cls=t.dataset.cls;S.sel.clear();S.focus=null;render();return}
+    if(t.id==="addClassBtn"){$("classForm").hidden=!$("classForm").hidden;$("cName").focus();return}
+    if(t.dataset.seat){
+      const id=t.dataset.seat,rec=seatMap().get(id);
+      if(rec&&!S.sel.has(id)){S.focus=S.focus===id?null:id;S.confirm=false}
+      else if(S.canWrite&&db){S.sel.has(id)?S.sel.delete(id):S.sel.add(id);S.focus=null}
+      render();return}
+    if(t.dataset.goto){const rec=seatMap().get(t.dataset.goto);if(!rec)return;S.cls=rec.seatClass;S.coach=rec.coach;S.focus=rec.id;S.confirm=false;S.sel.clear();render();$("map").scrollIntoView({behavior:"smooth",block:"start"});return}
+    if(t.id==="closeInfo"){S.focus=null;render();return}
+    if(t.id==="infoFree"){S.confirm=true;renderInfo();return}
+    if(t.id==="infoFreeNo"){S.confirm=false;renderInfo();return}
+    if(t.id==="infoFreeYes"){const id=S.focus;S.focus=null;S.confirm=false;try{await db.collection("seats").doc(id).delete();toast(id+" removed")}catch(err){writeErr(err)}return}
+  });
+
+  $("coachForm").addEventListener("submit",async e=>{
+    e.preventDefault();const id=slug($("kName").value);const n=Math.max(1,Math.min(120,parseInt($("kSeats").value)||55));
+    if(!id||!db||!S.cls)return;
+    if(S.coaches.find(c=>c.id===id)){toast("Coach "+id+" already exists");return}
+    try{await db.collection("coaches").doc(id).set({seatClass:S.cls,seats:n});S.coach=id;$("coachForm").hidden=true;$("kName").value="";toast("Coach "+id+" added")}catch(err){writeErr(err)}
+  });
+  $("classForm").addEventListener("submit",async e=>{
+    e.preventDefault();const id=slug($("cName").value);if(!id||!db)return;
+    if(S.classes.find(c=>c.id===id)){toast(id+" already exists");return}
+    try{await db.collection("classes").doc(id).set({name:id,fare:$("cFare").value?+$("cFare").value:null,vat:false,order:S.classes.length+1});S.cls=id;$("classForm").hidden=true;$("cName").value="";$("cFare").value="";toast(id+" added")}catch(err){writeErr(err)}
+  });
+
+  // ---------- boot ----------
+  render();
+  (async()=>{
+    if(!window.claude||!window.claude.use){setStatus("Open this page on claude.ai to use it.",true);S.loaded=true;render();return}
+    [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
+    if(!db){setStatus("Sign in to claude.ai to see the seats.",true);S.canWrite=false;S.loaded=true;render();return}
+    if(user){try{me=await user.id()}catch(_){}try{if(await user.can("data.write")===false)S.canWrite=false}catch(_){}}
+    const timer=setTimeout(()=>{if(!S.loaded)setStatus("Can't reach the shared list yet.",true)},10000);
+    const got={};
+    const done=()=>{if(got.c&&got.k&&got.s&&!S.loaded){S.loaded=true;clearTimeout(timer)}
+      setStatus(S.canWrite?"Live · shared with everyone":"View only",!S.canWrite);render()};
+    db.collection("classes").onSnapshot(s=>{S.classes=s.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(a.order||99)-(b.order||99));if(!S.cls||!S.classes.find(c=>c.id===S.cls))S.cls=S.classes[0]&&S.classes[0].id;got.c=1;done()},()=>{got.c=1;done()});
+    db.collection("coaches").onSnapshot(s=>{S.coaches=s.docs.map(d=>({...d.data(),id:d.id}));got.k=1;done()},()=>{got.k=1;done()});
+    db.collection("seats").onSnapshot(s=>{S.seats=s.docs.map(d=>({...d.data(),id:d.id}));
+      const m=seatMap();for(const id of [...S.sel])if(m.has(id))S.sel.delete(id);got.s=1;done()},
+      ()=>{got.s=1;setStatus("Lost connection. Reload the page.",true);render()});
+  })();
+})();
+</script>
+
+</body>
+</html>
