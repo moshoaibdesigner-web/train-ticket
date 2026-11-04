@@ -880,8 +880,8 @@ function makeDb(){
       const g=new Map();for(const s of S.seats){const k=norm(s.buyer);if(!g.has(k))g.set(k,[]);g.get(k).push(s)}
       const groups=[...g.values()].map(l=>l.sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})))
         .sort((a,b)=>Math.min(...a.map(added))-Math.min(...b.map(added)));
-      const head=["Sn","Ticket Owner","","Journey Date & Time","Train Name & Number","Class Name","Type","Coach Name / Seat","Fare","Payable","Remarks"];
-      const rows=[head],merges=[{s:{r:0,c:1},e:{r:0,c:2}}];let sn=0;
+      const head=["Sn","Ticket Owner","Passenger","Journey Date & Time","Train Name & Number","Class Name","Type","Coach Name / Seat","Fare","Payable","Remarks"];
+      const rows=[head],merges=[];let sn=0;
       for(const l of groups){
         const r0=rows.length,pay=l.reduce((t,s)=>t+(fareOf(s)||0),0);
         const rem=[...new Set(l.map(s=>s.refund||"Non Refund"))].join(" / ");
