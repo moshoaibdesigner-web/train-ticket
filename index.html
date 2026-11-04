@@ -126,10 +126,35 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .chip.sel{background:var(--sel);color:var(--sel-ink)}
 
 /* add-seats popup */
-.addpop{width:320px}
-.addpop .in{display:grid;gap:12px}
-.addpop .chips{display:flex;flex-wrap:wrap;gap:4px}
-.addpop .chips:empty{display:none}
+/* add-seats drawer (bottom of the screen) */
+.drawer{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);color:var(--ink);border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+  box-shadow:0 -10px 30px rgba(0,0,0,.25);
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.drawer::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--line);margin:-6px auto 10px}
+.drawer .in{max-width:1100px;margin:0 auto;display:grid;gap:12px}
+.d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.drawer .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.drawer .chips:empty{display:none}
+.d-body{display:grid;gap:8px}
+.d-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.d-fields .btn{grid-column:1/-1}
+.drawer{container-type:inline-size}
+/* enough room: name, ELX ID and Save on one line */
+@container (min-width:520px){
+  .d-fields{grid-template-columns:1fr 1fr auto}
+  .d-fields .btn{grid-column:auto;height:42px;white-space:nowrap}
+}
+/* wide drawer (tablet full-width): title block, fields and close side by side */
+@container (min-width:900px){
+  .drawer .in{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto;align-items:start;column-gap:24px}
+  .d-head{display:contents}
+  .d-head>div{grid-column:1}
+  .d-head .iconbtn{grid-column:3;grid-row:1}
+  .d-body{grid-column:2;grid-row:1}
+}
+@media (min-width:980px){.drawer{border:1px solid var(--line);border-bottom:0;padding-left:20px;padding-right:20px}}
+@media (prefers-reduced-motion:no-preference){.drawer:not([hidden]){animation:drawerUp .2s ease-out}}
+@keyframes drawerUp{from{transform:translateY(100%)}to{transform:none}}
 .pop-tag.avail{background:transparent;color:var(--sel);border:1.5px solid var(--avail-line)}
 .seat.booked{cursor:default}
 
@@ -265,22 +290,26 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
   </aside>
 </div>
 
-<div class="pop addpop" id="sheet" role="dialog" aria-label="Add seats" hidden>
+<div class="drawer" id="sheet" role="dialog" aria-label="Add seats" hidden>
   <form class="in" id="sheetForm" autocomplete="off">
-    <div class="pop-head">
-      <div><span class="pop-code" id="selTitle">UMA-1</span><span class="pop-tag avail">Available</span></div>
+    <div class="d-head">
+      <div style="min-width:0">
+        <div><span class="pop-code" id="selTitle">UMA-1</span><span class="pop-tag avail">Available</span></div>
+        <div class="pop-meta" id="selCount" style="margin-top:2px"></div>
+        <div class="chips" id="selChips"></div>
+      </div>
       <button class="iconbtn" type="button" id="clearSel" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg></button>
     </div>
-    <div class="pop-meta" id="selCount"></div>
-    <div class="chips" id="selChips"></div>
-    <div class="two">
-      <label for="sBuyer">Bought by<input id="sBuyer" list="buyerList" maxlength="60" placeholder="Name" required></label>
-      <label for="sElx">ELX ID<input id="sElx" maxlength="40" placeholder="ELX ID"></label>
+    <div class="d-body">
+      <div class="d-fields">
+        <label for="sBuyer">Bought by<input id="sBuyer" list="buyerList" maxlength="60" placeholder="Name" required></label>
+        <label for="sElx">ELX ID<input id="sElx" maxlength="40" placeholder="ELX ID"></label>
+        <button class="btn" type="submit" id="markBooked">Save</button>
+      </div>
+      <datalist id="buyerList"></datalist>
+      <div id="sheetMsg"></div>
+      <div class="sub">Tip: tap more available seats to add them for the same person.</div>
     </div>
-    <datalist id="buyerList"></datalist>
-    <div id="sheetMsg"></div>
-    <button class="btn" type="submit" id="markBooked">Save</button>
-    <div class="sub">Tip: tap more available seats to add them for the same person.</div>
   </form>
 </div>
 <div class="backdrop" id="popBack" hidden></div>
@@ -318,6 +347,23 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 </div>
 <div class="toast" id="toast" hidden></div>
 
+<script>
+// Hide the "Powered by Netlify" badge that the host injects into the page.
+(function(){
+  const own=new Set(["HTML","HEAD","BODY","SCRIPT","STYLE","LINK","TITLE","META","DATALIST","NOSCRIPT"]);
+  const isBadge=el=>{
+    if(!(el instanceof HTMLElement)||own.has(el.tagName)||el.matches(".wrap,#sheet,#popBack,#edBack,#cfBack,#toast")||el.closest(".wrap,#sheet,#popBack,#edBack,#cfBack,#toast"))return false;
+    if(/netlify/i.test(el.tagName))return true;
+    const html=(el.outerHTML||"")+(el.shadowRoot?el.shadowRoot.innerHTML:"");
+    return /netlify/i.test(html);
+  };
+  const sweep=()=>{for(const el of [...document.body.children,...document.documentElement.children])if(isBadge(el))el.remove()};
+  new MutationObserver(sweep).observe(document.documentElement,{childList:true,subtree:false});
+  if(document.body)new MutationObserver(sweep).observe(document.body,{childList:true});
+  document.addEventListener("DOMContentLoaded",()=>{sweep();new MutationObserver(sweep).observe(document.body,{childList:true})});
+  addEventListener("load",()=>{sweep();setTimeout(sweep,1000);setTimeout(sweep,4000)});
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 // ---------- Supabase storage ----------
@@ -528,7 +574,7 @@ function makeDb(){
     try{
       for(const s of list){
         if(ED.remove.has(s.id)){await db.collection("seats").doc(s.id).delete();continue}
-        if(s.buyer!==name||(s.elx||"")!==elx){const {id:_i,...old}=s;await db.collection("seats").doc(s.id).set({...old,buyer:name,elx,updatedAt:Date.now()})}
+        if(s.buyer!==name||(s.elx||"")!==elx){const {id:_i,...old}=s;await db.collection("seats").doc(s.id).set({...old,buyer:name,elx,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()})}
       }
       toast(ED.remove.size?`Saved · ${ED.remove.size} seat(s) removed`:"Saved");
       if(ED.remove.has(S.focus))S.focus=null;closeEditor();
@@ -559,10 +605,11 @@ function makeDb(){
   }
   function placeSheet(){
     const box=$("sheet");
-    document.body.style.paddingBottom=(!box.hidden&&innerWidth<=600)?(box.offsetHeight+24)+"px":"";
-    if(box.hidden)return;
-    if(innerWidth<=600){box.style.left="";box.style.top="";return}
-    const el=S.lastSel&&document.querySelector(`button[data-seat="${S.lastSel}"]`);if(el)anchorPos(box,el);
+    // desktop: dock the drawer under the seat-map column only; phone/tablet: full width
+    const col=document.querySelector(".left");
+    if(!box.hidden&&innerWidth>=980&&col){const r=col.getBoundingClientRect();box.style.left=r.left+"px";box.style.right=(document.documentElement.clientWidth-r.right)+"px"}
+    else{box.style.left="";box.style.right=""}
+    document.body.style.paddingBottom=box.hidden?"":(box.offsetHeight+24)+"px";
   }
   addEventListener("resize",()=>{placeInfo();placeSheet()});
   addEventListener("keydown",e=>{if(e.key!=="Escape")return;
@@ -582,7 +629,7 @@ function makeDb(){
     const show=S.sel.size>0&&S.canWrite;
     const wasHidden=$("sheet").hidden;
     $("sheet").hidden=!show; if(!show){placeSheet();return}
-    const ids=[...S.sel];const c=coachObj();
+    const ids=[...S.sel].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));const c=coachObj();
     $("selTitle").textContent=ids.length===1?ids[0]:ids.length+" seats";
     $("selCount").textContent=(c?c.seatClass+" · Coach "+c.id:"")+(ids.length===1?" · Seat "+ids[0].split("-").pop():"");
     $("selChips").innerHTML=ids.length>1?ids.map(i=>`<span class="chip sel">${esc(i)}</span>`).join(""):"";
@@ -606,7 +653,8 @@ function makeDb(){
     for(const s of S.seats){const k=norm(s.buyer);if(!g.has(k))g.set(k,{name:s.buyer,elx:s.elx,list:[]});const b=g.get(k);b.list.push(s);if(!b.elx&&s.elx)b.elx=s.elx}
     $("buyerList").innerHTML=[...g.values()].map(b=>`<option value="${esc(b.name)}">`).join("");
     if(!g.size){box.innerHTML=`<div class="sub">Nobody yet. Tap the seats you got on the map, enter who bought them, then <b>Save seats</b>.</div>`;return}
-    box.innerHTML=[...g.values()].sort((a,b)=>b.list.length-a.list.length||a.name.localeCompare(b.name)).map(b=>{
+    const added=s=>+(s.createdAt??s.updatedAt??0);const latest=b=>Math.max(0,...b.list.map(added));
+    box.innerHTML=[...g.values()].sort((a,b)=>latest(b)-latest(a)||a.name.localeCompare(b.name)).map(b=>{
       const n=b.list.length,cls=n>MAX?"over":n===MAX?"full":"";
       let p="";for(let i=0;i<Math.max(MAX,n);i++)p+=`<i class="${i<n?"on":""}"></i>`;
       const fr=S.focus&&seatMap().get(S.focus),hl=fr&&norm(fr.buyer)===norm(b.name);
@@ -626,7 +674,7 @@ function makeDb(){
       for(const id of ids){
         const old=m.get(id);
         await db.collection("seats").doc(id).set({coach:old?old.coach:c.id,seat:+id.split("-").pop(),seatClass:old?old.seatClass:c.seatClass,status,
-          buyer:name,elx:$("sElx").value.trim(),addedBy:me||null,updatedAt:Date.now()});
+          buyer:name,elx:$("sElx").value.trim(),addedBy:me||null,createdAt:Date.now(),updatedAt:Date.now()});
       }
       toast(`${ids.length} seat(s) saved for ${name}`);
       S.sel.clear();$("sBuyer").value="";$("sElx").value="";
@@ -663,7 +711,7 @@ function makeDb(){
       if(!name){$("eMsg").innerHTML=`<div class="notice">Enter who bought this seat.</div>`;return}
       if(norm(name)!==norm(rec.buyer)&&buyerCount(name)+1>MAX){$("eMsg").innerHTML=`<div class="notice">${esc(name)} already has ${buyerCount(name)} ticket(s). The limit is ${MAX}.</div>`;return}
       const {id:_i,...old}=rec;
-      try{await db.collection("seats").doc(rec.id).set({...old,buyer:name,elx,updatedAt:Date.now()});S.editing=false;toast(rec.id+" updated")}catch(err){writeErr(err)}
+      try{await db.collection("seats").doc(rec.id).set({...old,buyer:name,elx,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()});S.editing=false;toast(rec.id+" updated")}catch(err){writeErr(err)}
       render();revealBuyer();return}
     if(t.dataset.goto){const rec=seatMap().get(t.dataset.goto);if(!rec)return;S.cls=rec.seatClass;S.coach=rec.coach;S.focus=rec.id;S.editing=false;S.sel.clear();render();revealBuyer();
       const el=document.querySelector(`[data-seat="${rec.id}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});setTimeout(placeInfo,500)}return}
