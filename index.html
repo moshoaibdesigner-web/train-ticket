@@ -6,7 +6,6 @@
 </head>
 <body>
 <title>Group Ticket Desk</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap">
 <style>
 /* Layout: mirrors the booking site — class cards on top, coach dropdown + legend, seat map; a bottom sheet records who bought the selected seats */
@@ -217,6 +216,40 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 </div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script>
+// ---------- Supabase storage ----------
+// Everything (classes, coaches, seats) lives in one table: public.docs(collection, id, data jsonb).
+// Run supabase/setup.sql once in the Supabase SQL editor to create it.
+const SUPABASE_URL="https://nfzktctuclqrqgsodtgk.supabase.co";
+const SUPABASE_KEY="sb_publishable_2Kx7y-9UuChpKsWkEm-2rQ_HK8XJk9_";
+function makeDb(){
+  const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  const listeners={};
+  async function refresh(coll){
+    const {data,error}=await sb.from("docs").select("id,data").eq("collection",coll);
+    const ls=listeners[coll]||[];
+    if(error){ls.forEach(l=>l.err&&l.err(error));return}
+    const snap={docs:data.map(r=>({id:r.id,data:()=>r.data||{}})),metadata:{fromCache:false}};
+    ls.forEach(l=>l.next(snap));
+  }
+  const refreshAll=()=>Object.keys(listeners).forEach(refresh);
+  try{
+    sb.channel("docs-changes").on("postgres_changes",{event:"*",schema:"public",table:"docs"},p=>{
+      const c=(p.new&&p.new.collection)||(p.old&&p.old.collection);c?refresh(c):refreshAll();
+    }).subscribe();
+  }catch(_){}
+  setInterval(refreshAll,15000); // backup in case live updates are off
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshAll()});
+  return {collection(coll){return{
+    onSnapshot(next,err){(listeners[coll]=listeners[coll]||[]).push({next,err});refresh(coll);return()=>{}},
+    doc(id){return{
+      async set(data){const {error}=await sb.from("docs").upsert({collection:coll,id,data,updated_at:new Date().toISOString()});if(error)throw error;refresh(coll)},
+      async delete(){const {error}=await sb.from("docs").delete().eq("collection",coll).eq("id",id);if(error)throw error;refresh(coll)}
+    }}
+  }}};
+}
+</script>
 <script>
 (function(){
   const MAX=4;
@@ -409,10 +442,8 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
   // ---------- boot ----------
   render();
   (async()=>{
-    if(!window.claude||!window.claude.use){setStatus("Open this page on claude.ai to use it.",true);S.loaded=true;render();return}
-    [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
-    if(!db){setStatus("Sign in to claude.ai to see the seats.",true);S.canWrite=false;S.loaded=true;render();return}
-    if(user){try{me=await user.id()}catch(_){}try{if(await user.can("data.write")===false)S.canWrite=false}catch(_){}}
+    if(!window.supabase){setStatus("Couldn't load. Check your internet and reload the page.",true);S.loaded=true;render();return}
+    db=makeDb();
     const timer=setTimeout(()=>{if(!S.loaded)setStatus("Can't reach the shared list yet.",true)},10000);
     const got={};
     const done=()=>{if(got.c&&got.k&&got.s&&!S.loaded){S.loaded=true;clearTimeout(timer)}
@@ -421,7 +452,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
     db.collection("coaches").onSnapshot(s=>{S.coaches=s.docs.map(d=>({...d.data(),id:d.id}));got.k=1;done()},()=>{got.k=1;done()});
     db.collection("seats").onSnapshot(s=>{S.seats=s.docs.map(d=>({...d.data(),id:d.id}));
       const m=seatMap();for(const id of [...S.sel])if(m.has(id))S.sel.delete(id);got.s=1;done()},
-      ()=>{got.s=1;setStatus("Lost connection. Reload the page.",true);render()});
+      e=>{got.s=1;S.loaded=true;setStatus(e&&/docs|relation|schema cache/i.test(e.message||"")?"Database not set up yet. Run supabase/setup.sql in Supabase.":"Can't reach the database. Check your internet.",true);render()});
   })();
 })();
 </script>
