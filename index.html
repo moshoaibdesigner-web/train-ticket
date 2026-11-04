@@ -39,7 +39,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15px;l
 .left{display:grid;gap:18px;min-width:0}
 .right{min-width:0;display:grid;gap:16px;align-content:start}
 @media (min-width:980px){.wrap{max-width:1180px;grid-template-columns:minmax(0,1fr) 380px;align-items:start;gap:24px}
-  .right{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow-y:auto}}
+  /* right column: totals, seat card, title and search stay put; only the buyer list scrolls */
+  .right{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
+  .right>*{flex:none}
+  .right>.panel{flex:0 1 auto;min-height:min(380px,calc(100vh - 32px));display:flex;flex-direction:column}
+  .right #buyers{flex:1 1 auto;min-height:0;overflow-y:auto;margin-right:-10px;padding-right:10px;overscroll-behavior:contain}
+  .right .detail{max-height:40vh;overflow-y:auto}}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--green);outline-offset:2px}
 h2{font-size:20px;font-weight:700;margin:0}
@@ -217,13 +222,18 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 .ed-total{margin-top:8px;text-align:right;font-weight:700;color:var(--price)}
 .pop-facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
 .pop-facts dt{color:var(--muted)} .pop-facts dd{margin:0;font-weight:600}
+.suggest{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:-4px}
+.suggest:empty{display:none}
+.suggest b{color:var(--ink)}
+.suggest button{border:0;background:transparent;color:var(--price);font-weight:700;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px;font-size:12px}
 /* totals (top right) */
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .stat{background:var(--card-low);border:1.5px solid var(--green);border-radius:10px;padding:14px 10px;text-align:center;display:grid;gap:4px}
 .stat span{font-size:12px;color:var(--muted)}
 .acsum{grid-column:1/-1;display:flex;justify-content:center;gap:6px 18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .acsum b{color:var(--ink)}
-.stat b{font-size:clamp(20px,2.4vw,30px);font-weight:900;line-height:1;color:var(--price)}
+.stat{container-type:inline-size;min-width:0;overflow:hidden}
+.stat b{white-space:nowrap;font-size:clamp(20px,30cqi,32px);font-weight:900;line-height:1;color:var(--price)}
 /* confirmation dialog */
 .cf-back{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:grid;place-items:center;
   padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -312,7 +322,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
     <div class="stats" aria-live="polite">
       <div class="stat"><span>Total tickets bought</span><b class="num" id="stTickets">0</b></div>
       <div class="stat"><span>People who bought</span><b class="num" id="stBuyers">0</b></div>
-      <div class="stat"><span>Total amount</span><b class="num" id="stAmount">৳0</b></div>
+      <div class="stat money"><span>Total amount</span><b class="num" id="stAmount">৳0</b></div>
       <div class="acsum num" id="stAc"></div>
     </div>
     <div class="pop detail" id="info" role="dialog" aria-label="Seat details" hidden></div>
@@ -344,6 +354,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
         <label for="sElx">ELX ID<input id="sElx" maxlength="40" placeholder="ELX ID"></label>
         <label for="sAmount">Total amount (৳)<input id="sAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 3852"></label>
       </div>
+      <div class="suggest" id="sSuggest"></div>
       <div class="d-pass" id="sPassengers"></div>
       <div class="d-row">
         <div class="seg" role="radiogroup" aria-label="Refund">
@@ -370,6 +381,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
       <label for="edElx">ELX ID<input id="edElx" maxlength="40" placeholder="ELX ID"></label>
     </div>
     <label for="edAmount"><span>Total amount (৳) <span class="sub" style="font-weight:500">· split evenly across the tickets</span></span><input id="edAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 3852"></label>
+    <div class="suggest" id="edSuggest"></div>
     <div class="seg" role="radiogroup" aria-label="Refund" id="edRefund">
       <button type="button" role="radio" data-edrefund="Non Refund" aria-checked="true">Non Refundable</button>
       <button type="button" role="radio" data-edrefund="Refundable" aria-checked="false">Refundable</button>
@@ -461,6 +473,13 @@ function makeDb(){
   const S={classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true,refund:"Non Refund",pass:{},passKey:""};
   const money=n=>"৳"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
   const fareOf=s=>Number.isFinite(+s.fare)&&s.fare!==null&&s.fare!==""?+s.fare:null;
+  const SERVICE=20; // service charge added to every ticket
+  function suggestFor(seats){ // [{seatClass}] -> {total, text} or null when a class has no fare
+    const fares=seats.map(s=>(S.classes.find(c=>c.id===s.seatClass)||{}).fare);
+    if(!seats.length||fares.some(f=>!(+f>0)))return null;
+    const total=fares.reduce((t,f)=>t+(+f)+SERVICE,0),same=fares.every(f=>+f===+fares[0]);
+    return {total,text:same?`${seats.length} × (${money(fares[0])} fare + ${money(SERVICE)} service)`:`class fares + ${money(SERVICE)} service per ticket`};
+  }
   const refundLabel=r=>r==="Refundable"?"Refundable":"Non Refundable";
   let db=null,user=null,me=null;
   const $=id=>document.getElementById(id);
@@ -475,10 +494,14 @@ function makeDb(){
   // highlight the focused seat's buyer in the right panel and bring it into view
   function revealBuyer(){
     const el=document.querySelector(".buyer.hl");if(!el)return;
-    const panel=el.closest(".right");
+    const panel=$("buyers");
     if(innerWidth>=980&&panel){const pr=panel.getBoundingClientRect(),er=el.getBoundingClientRect();
       if(er.top<pr.top||er.bottom>pr.bottom)panel.scrollTop+=er.top-pr.top-60}
   }
+  // shrink a big number until it fits its box (long amounts like ৳12,34,567)
+  function fitStat(el){el.style.fontSize="";const box=el.parentElement;let f=parseFloat(getComputedStyle(el).fontSize);
+    while(el.scrollWidth>box.clientWidth-16&&f>12){f-=1;el.style.fontSize=f+"px"}}
+  addEventListener("resize",()=>fitStat($("stAmount")));
   function setStatus(m,bad){$("status").textContent=m;$("status").classList.toggle("bad",!!bad)}
 
   const seatMap=()=>{const m=new Map();for(const s of S.seats)m.set(s.id,s);return m};
@@ -618,6 +641,8 @@ function makeDb(){
   function renderEditorSeats(){
     document.querySelectorAll("#edSeats [data-row]").forEach(r=>{const id=r.dataset.row,gone=ED.remove.has(id);r.classList.toggle("gone",gone);
       const b=r.querySelector("[data-edseat]");b.textContent=gone?"↺":"✕";b.setAttribute("aria-label",(gone?"Keep ":"Remove ")+id)});
+    const keptSeats=edList().filter(x=>!ED.remove.has(x.id)),sug=suggestFor(keptSeats);
+    $("edSuggest").innerHTML=sug?`<span>Suggested <b>${money(sug.total)}</b> = ${esc(sug.text)}</span>${+$("edAmount").value!==sug.total?`<button type="button" id="edUseSuggest">Use ${money(sug.total)}</button>`:""}`:"";
     const left=edList().length-ED.remove.size,amt=+$("edAmount").value;
     $("edTotal").textContent=amt>0&&left>0?`${left} ticket${left===1?"":"s"} · ${money(amt/left)} per ticket`:"";
     $("edSave").textContent=ED.remove.size?`Save (${ED.remove.size} removed)`:"Save";
@@ -633,6 +658,7 @@ function makeDb(){
       if($("edAmount").value===ED.amount0){const sum=edList().filter(x=>!ED.remove.has(x.id)).reduce((t,x)=>t+(fareOf(x)||0),0);
         ED.amount0=sum?String(Math.round(sum*100)/100):"";$("edAmount").value=ED.amount0}
       renderEditorSeats();return}
+    if(e.target.closest("#edUseSuggest")){const sug=suggestFor(edList().filter(x=>!ED.remove.has(x.id)));if(sug)$("edAmount").value=sug.total;renderEditorSeats();return}
     const rb=e.target.closest("[data-edrefund]");if(rb){ED.refund=rb.dataset.edrefund;setEdRefund();return}
     if(e.target.closest("#edDelete")){
       const list=edList(),ids=list.map(s=>s.id);if(!ids.length)return;
@@ -712,7 +738,7 @@ function makeDb(){
   function renderSheet(){
     const show=S.sel.size>0&&S.canWrite;
     const wasHidden=$("sheet").hidden;
-    $("sheet").hidden=!show; if(!show){placeSheet();return}
+    $("sheet").hidden=!show; if(!show){S.amountTouched=false;placeSheet();return}
     const ids=[...S.sel].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));const c=coachObj();
     $("selTitle").textContent=ids.length===1?ids[0]:ids.length+" seats";
     $("selCount").textContent=(c?c.seatClass+" · Coach "+c.id:"")+(ids.length===1?" · Seat "+ids[0].split("-").pop():"");
@@ -725,6 +751,9 @@ function makeDb(){
     if(key!==S.passKey){S.passKey=key;
       $("sPassengers").innerHTML=ids.map(i=>`<label><span class="pl"><b>${esc(i)}</b> passenger</span><input data-pass="${esc(i)}" maxlength="60" placeholder="optional" value="${esc(S.pass[i]||"")}"></label>`).join("")}
     document.querySelectorAll("[data-refund]").forEach(b=>b.setAttribute("aria-checked",String(b.dataset.refund===S.refund)));
+    const sug=suggestFor(ids.map(i=>({seatClass:(seatMap().get(i)||{}).seatClass||(c&&c.seatClass)})));
+    if(!S.amountTouched)$("sAmount").value=sug?sug.total:"";
+    $("sSuggest").innerHTML=sug?`<span>Suggested <b>${money(sug.total)}</b> = ${esc(sug.text)}</span>${S.amountTouched&&+$("sAmount").value!==sug.total?`<button type="button" id="useSuggest">Use ${money(sug.total)}</button>`:""}`:"";
     const amt=+$("sAmount").value;
     $("perTicket").textContent=amt>0?`${money(amt/ids.length)} per ticket`:"";
     const name=$("sBuyer").value.trim();
@@ -736,7 +765,7 @@ function makeDb(){
     const box=$("buyers");
     $("stTickets").textContent=S.seats.length;
     $("stBuyers").textContent=new Set(S.seats.map(s=>norm(s.buyer))).size;
-    $("stAmount").textContent=money(S.seats.reduce((t,s)=>t+(fareOf(s)||0),0));
+    $("stAmount").textContent=money(S.seats.reduce((t,s)=>t+(fareOf(s)||0),0));fitStat($("stAmount"));
     const acN=S.seats.filter(s=>AC_CLASSES.has(s.seatClass)).length;
     $("stAc").innerHTML=`<span>AC seats <b>${acN}</b></span><span>Non AC seats <b>${S.seats.length-acN}</b></span>`;
     if(!S.loaded){box.innerHTML=`<div class="sub">Loading…</div>`;return}
@@ -833,7 +862,8 @@ function makeDb(){
   }
 
   $("sheetForm").addEventListener("submit",e=>{e.preventDefault();saveSeats()});
-  $("sheetForm").addEventListener("input",e=>{const pi=e.target.closest("[data-pass]");if(pi){S.pass[pi.dataset.pass]=pi.value;return}renderSheet()});
+  $("sheetForm").addEventListener("input",e=>{const pi=e.target.closest("[data-pass]");if(pi){S.pass[pi.dataset.pass]=pi.value;return}
+    if(e.target.id==="sAmount")S.amountTouched=true;renderSheet()});
   $("bSearch").addEventListener("input",renderBuyers);
   $("sBuyer").addEventListener("change",()=>{const k=norm($("sBuyer").value);const s=S.seats.find(x=>norm(x.buyer)===k&&x.elx);if(s&&!$("sElx").value)$("sElx").value=s.elx;renderSheet()});
   $("clearSel").addEventListener("click",()=>{S.sel.clear();render()});
@@ -852,6 +882,7 @@ function makeDb(){
       if(S.sel.has(id)){S.sel.delete(id);S.lastSel=[...S.sel].pop()}else{S.sel.add(id);S.lastSel=id}
       S.focus=null;S.editing=false;render();return}
     if(t.dataset.refund){S.refund=t.dataset.refund;renderSheet();return}
+    if(t.id==="useSuggest"){S.amountTouched=false;renderSheet();return}
     if(t.dataset.erefund){document.querySelectorAll("[data-erefund]").forEach(b=>b.setAttribute("aria-checked",String(b===t)));return}
     if(t.id==="exportXlsx"){exportExcel();return}
     if(t.id==="infoEdit"){S.editing=true;renderInfo();setTimeout(()=>{const i=$("eBuyer");i&&i.focus()},0);return}
