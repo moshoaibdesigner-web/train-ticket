@@ -45,6 +45,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15px;l
   .right>.panel{flex:0 1 auto;min-height:min(380px,calc(100vh - 32px));display:flex;flex-direction:column}
   .right #buyers{flex:1 1 auto;min-height:0;overflow-y:auto;margin-right:-10px;padding-right:10px;overscroll-behavior:contain}
   .right .detail{max-height:40vh;overflow-y:auto}}
+/* phones and tablets: the buyer / passenger list sits in its own box and scrolls inside it */
+@media (max-width:979px){
+  #buyers{max-height:min(62vh,560px);overflow-y:auto;margin-right:-8px;padding-right:8px;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:4px;
+    -webkit-mask-image:linear-gradient(#000 calc(100% - 18px),transparent);mask-image:linear-gradient(#000 calc(100% - 18px),transparent)}
+}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--green);outline-offset:2px}
 h2{font-size:20px;font-weight:700;margin:0}
@@ -251,7 +257,9 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 /* totals (top right) */
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .stat{background:var(--card-low);border:1.5px solid var(--green);border-radius:10px;padding:14px 10px;text-align:center;display:grid;gap:4px}
-.stat span{font-size:12px;color:var(--muted)}
+.stat span{font-size:12px;line-height:1.35;color:var(--muted);align-self:start;white-space:nowrap}
+.stat{grid-template-rows:1fr auto}
+.stat b{align-self:end}
 .acsum{grid-column:1/-1;display:flex;justify-content:center;gap:6px 18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .acsum b{color:var(--ink)}
 .stat{container-type:inline-size;min-width:0;overflow:hidden}
@@ -295,13 +303,13 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 <div class="wrap">
  <div class="left">
   <div class="trips" role="tablist" aria-label="Journey">
-    <button type="button" class="trip" role="tab" aria-selected="true">
+    <button type="button" class="trip" role="tab" data-trip="dhk-syl" aria-selected="true">
       <span class="route">Dhaka <span class="arr">→</span> Sylhet</span>
-      <span class="tmeta">14.11.2026 · Parabat Express</span>
+      <span class="tmeta">14.11.2026 · Parabat Express (709)</span>
     </button>
-    <button type="button" class="trip" role="tab" aria-selected="false" disabled title="Return date not set yet">
+    <button type="button" class="trip" role="tab" data-trip="syl-dhk" aria-selected="false">
       <span class="route">Sylhet <span class="arr">→</span> Dhaka</span>
-      <span class="tmeta">Date to be announced</span>
+      <span class="tmeta">16.11.2026 · Jayentika Express (718)</span>
     </button>
   </div>
   <div class="top">
@@ -348,9 +356,9 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
 
   <aside class="right">
     <div class="stats" aria-live="polite">
-      <div class="stat"><span>Total tickets bought</span><b class="num" id="stTickets">0</b></div>
-      <div class="stat"><span>People who bought</span><b class="num" id="stBuyers">0</b></div>
-      <div class="stat money"><span>Total amount</span><b class="num" id="stAmount">৳0</b></div>
+      <div class="stat"><span>Total tickets<br>bought</span><b class="num" id="stTickets">0</b></div>
+      <div class="stat"><span>People who<br>bought</span><b class="num" id="stBuyers">0</b></div>
+      <div class="stat money"><span>Total<br>amount</span><b class="num" id="stAmount">৳0</b></div>
       <div class="acsum num" id="stAc"></div>
     </div>
     <div class="pop detail" id="info" role="dialog" aria-label="Seat details" hidden></div>
@@ -494,11 +502,16 @@ function makeDb(){
 <script>
 (function(){
   // trip details used in the Excel export
-  const TRIP={date:"11/14/2026 6:30",train:"PARABAT EXPRESS [709]",file:"Parabat-Express-Dhaka-Sylhet-14-Nov-2026"};
+  const TRIPS={
+    "dhk-syl":{date:"11/14/2026 6:30",train:"PARABAT EXPRESS [709]",seats:"seats",file:"Parabat-Express-Dhaka-Sylhet-14-Nov-2026"},
+    "syl-dhk":{date:"11/16/2026",train:"JAYENTIKA EXPRESS [718]",seats:"seats_syl_dhk",file:"Jayentika-Express-Sylhet-Dhaka-16-Nov-2026"}};
+  let TRIP_ID="dhk-syl";try{const t=localStorage.getItem("ticketTrip");if(TRIPS[t])TRIP_ID=t}catch(_){}
+  let TRIP=TRIPS[TRIP_ID];
+  const SEATS=()=>TRIP.seats; // seats collection of the open trip
   const AC_CLASSES=new Set(["AC_S","SNIGDHA"]);  // everything else is Non AC
   const BN_COACH={KA:"ক",KHA:"খ",GA:"গ",GHA:"ঘ",UMA:"ঙ",CHA:"চ",SCHA:"ছ",JA:"জ",JHA:"ঝ",NEO:"ঞ",TA:"ট",THA:"ঠ",DA:"ড",DHA:"ঢ",TO:"ত",THO:"থ",DO:"দ",DHO:"ধ",NO:"ন"};
   const bnDigits=n=>String(n).replace(/\d/g,d=>"০১২৩৪৫৬৭৮৯"[d]);
-  const S={classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true,refund:"Non Refund",pass:{},passKey:""};
+  const S={byTrip:{},classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true,refund:"Non Refund",pass:{},passKey:""};
   const money=n=>"৳"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
   const fareOf=s=>Number.isFinite(+s.fare)&&s.fare!==null&&s.fare!==""?+s.fare:null;
   let VIEW="captain";try{if(localStorage.getItem("ticketView")==="passenger")VIEW="passenger"}catch(_){}
@@ -693,7 +706,7 @@ function makeDb(){
       const list=edList(),ids=list.map(s=>s.id);if(!ids.length)return;
       const ok=await askConfirm({title:`Delete ${list[0].buyer}?`,body:`All ${ids.length} seat(s) saved for <b>${esc(list[0].buyer)}</b> will be removed and show as available again.`,seats:ids,okText:ids.length===1?"Delete 1 seat":`Delete ${ids.length} seats`});
       if(!ok)return;closeEditor();
-      try{for(const id of ids)await db.collection("seats").doc(id).delete();toast(ids.length+" seat(s) deleted")}catch(err){writeErr(err)}
+      try{for(const id of ids)await db.collection(SEATS()).doc(id).delete();toast(ids.length+" seat(s) deleted")}catch(err){writeErr(err)}
       if(ids.includes(S.focus))S.focus=null;render();
     }
   });
@@ -707,13 +720,13 @@ function makeDb(){
     $("edSave").disabled=true;
     try{
       for(const s of list){
-        if(ED.remove.has(s.id)){await db.collection("seats").doc(s.id).delete();continue}
+        if(ED.remove.has(s.id)){await db.collection(SEATS()).doc(s.id).delete();continue}
         const pv=(document.querySelector(`[data-edpass="${s.id}"]`)||{}).value??s.passenger??"";
         // total changed: split it evenly over the tickets being kept; otherwise keep each ticket's fare
         const amtRaw=$("edAmount").value,kept=list.length-ED.remove.size;
         const fv=amtRaw!==ED.amount0?(amtRaw===""?null:Math.round(+amtRaw/kept*100)/100):fareOf(s);
         if(s.buyer!==name||(s.elx||"")!==elx||(s.passenger||"")!==pv.trim()||fareOf(s)!==fv||(s.refund||"Non Refund")!==ED.refund){
-          const {id:_i,...old}=s;await db.collection("seats").doc(s.id).set({...old,buyer:name,elx,passenger:pv.trim(),fare:fv,refund:ED.refund,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()})}
+          const {id:_i,...old}=s;await db.collection(SEATS()).doc(s.id).set({...old,buyer:name,elx,passenger:pv.trim(),fare:fv,refund:ED.refund,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()})}
       }
       toast(ED.remove.size?`Saved · ${ED.remove.size} seat(s) removed`:"Saved");
       if(ED.remove.has(S.focus))S.focus=null;closeEditor();
@@ -855,7 +868,7 @@ function makeDb(){
     const order=S.pOrder||[],nextId=order[order.indexOf(id)+1];
     if(name!==(rec.passenger||"")){
       const {id:_i,...old}=rec;
-      try{await db.collection("seats").doc(id).set({...old,passenger:name,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()});toast(id+(name?" · "+name:" · name cleared"))}
+      try{await db.collection(SEATS()).doc(id).set({...old,passenger:name,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()});toast(id+(name?" · "+name:" · name cleared"))}
       catch(err){writeErr(err);return}
     }
     if(next&&nextId)startPEdit(nextId);else stopPEdit();
@@ -866,6 +879,17 @@ function makeDb(){
     if(e.key==="Enter"){e.preventDefault();savePEdit(true)}
     else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();stopPEdit()}
   });
+
+  // ---------- trips ----------
+  function renderTrips(){document.querySelectorAll("[data-trip]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.trip===TRIP_ID)))}
+  function switchTrip(id){
+    if(!TRIPS[id]||id===TRIP_ID)return;
+    TRIP_ID=id;TRIP=TRIPS[id];try{localStorage.setItem("ticketTrip",id)}catch(_){}
+    S.seats=S.byTrip[id]||[];S.sel.clear();S.focus=null;S.editing=false;S.pEdit=null;S.pDraft=null;S.pass={};S.passKey="";
+    if(!$("edBack").hidden)$("edBack").hidden=true;
+    $("bSearch").value="";renderTrips();render();
+    toast(id==="syl-dhk"?"Sylhet → Dhaka · 16.11.2026 · Jayentika Express":"Dhaka → Sylhet · 14.11.2026 · Parabat Express");
+  }
 
   // ---------- Excel export (same layout as the team's sheet) ----------
   let xlsxLoading=null;
@@ -926,7 +950,7 @@ function makeDb(){
     try{
       for(const id of ids){
         const old=m.get(id);
-        await db.collection("seats").doc(id).set({coach:old?old.coach:c.id,seat:+id.split("-").pop(),seatClass:old?old.seatClass:c.seatClass,status,
+        await db.collection(SEATS()).doc(id).set({coach:old?old.coach:c.id,seat:+id.split("-").pop(),seatClass:old?old.seatClass:c.seatClass,status,
           buyer:name,elx:$("sElx").value.trim(),passenger:(S.pass[id]||"").trim(),fare:fare,refund:S.refund,
           addedBy:me||null,createdAt:Date.now(),updatedAt:Date.now()});
       }
@@ -963,6 +987,7 @@ function makeDb(){
     if(t.dataset.pedit){startPEdit(t.dataset.pedit);return}
     if(t.dataset.psave){savePEdit(false);return}
     if(t.dataset.pclear){const i=$("pInput");if(i){i.value="";S.pDraft="";t.hidden=true;i.focus()}return}
+    if(t.dataset.trip){switchTrip(t.dataset.trip);return}
     if(t.dataset.view){S.pEdit=null;S.pDraft=null;VIEW=t.dataset.view;try{localStorage.setItem("ticketView",VIEW)}catch(_){}renderMap();renderBuyers();return}
     if(t.dataset.refund){S.refund=t.dataset.refund;renderSheet();return}
     if(t.id==="useSuggest"){S.amountTouched=false;renderSheet();return}
@@ -975,7 +1000,7 @@ function makeDb(){
       if(!name){$("eMsg").innerHTML=`<div class="notice">Enter who bought this seat.</div>`;return}
       const fv=$("eFare").value,refund=(document.querySelector("[data-erefund][aria-checked=true]")||{}).dataset?.erefund||"Non Refund";
       const {id:_i,...old}=rec;
-      try{await db.collection("seats").doc(rec.id).set({...old,buyer:name,elx,passenger:$("ePass").value.trim(),fare:fv===""?null:+fv,refund,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()});S.editing=false;toast(rec.id+" updated")}catch(err){writeErr(err)}
+      try{await db.collection(SEATS()).doc(rec.id).set({...old,buyer:name,elx,passenger:$("ePass").value.trim(),fare:fv===""?null:+fv,refund,createdAt:old.createdAt??old.updatedAt??0,updatedAt:Date.now()});S.editing=false;toast(rec.id+" updated")}catch(err){writeErr(err)}
       render();revealBuyer();return}
     if(t.dataset.goto){const rec=seatMap().get(t.dataset.goto);if(!rec)return;S.cls=rec.seatClass;S.coach=rec.coach;S.focus=rec.id;S.editing=false;S.sel.clear();render();revealBuyer();
       const el=document.querySelector(`[data-seat="${rec.id}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});setTimeout(placeInfo,500)}return}
@@ -983,15 +1008,15 @@ function makeDb(){
     if(t.id==="infoFree"){const rec=seatMap().get(S.focus);if(!rec)return;
       S.focus=null;S.editing=false;render();
       const {id:_i,...old}=rec;
-      try{await db.collection("seats").doc(rec.id).delete();
-        toast(`${rec.id} deleted (${rec.buyer})`,{label:"Undo",fn:async()=>{try{await db.collection("seats").doc(rec.id).set(old);toast(rec.id+" restored")}catch(err){writeErr(err)}}});
+      try{await db.collection(SEATS()).doc(rec.id).delete();
+        toast(`${rec.id} deleted (${rec.buyer})`,{label:"Undo",fn:async()=>{try{await db.collection(SEATS()).doc(rec.id).set(old);toast(rec.id+" restored")}catch(err){writeErr(err)}}});
       }catch(err){writeErr(err)}return}
     if(t.dataset.editbuyer){openEditor(t.dataset.editbuyer);return}
     if(t.dataset.delbuyer){const k=t.dataset.delbuyer;const list=S.seats.filter(s=>norm(s.buyer)===k);if(!list.length)return;
       const ids=list.map(s=>s.id).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
       const ok=await askConfirm({title:`Delete ${list[0].buyer}?`,body:`All ${ids.length} seat(s) saved for <b>${esc(list[0].buyer)}</b> will be removed and show as available again.`,seats:ids,okText:ids.length===1?"Delete 1 seat":`Delete ${ids.length} seats`});
       if(!ok)return;
-      try{for(const id of ids)await db.collection("seats").doc(id).delete();toast(ids.length+" seat(s) deleted")}catch(err){writeErr(err)}
+      try{for(const id of ids)await db.collection(SEATS()).doc(id).delete();toast(ids.length+" seat(s) deleted")}catch(err){writeErr(err)}
       if(ids.includes(S.focus))S.focus=null;render();return}
   });
 
@@ -1018,9 +1043,12 @@ function makeDb(){
       setStatus(S.canWrite?"Live · shared with everyone":"View only",!S.canWrite);render()};
     db.collection("classes").onSnapshot(s=>{S.classes=s.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(a.order||99)-(b.order||99));if(!S.cls||!S.classes.find(c=>c.id===S.cls))S.cls=S.classes[0]&&S.classes[0].id;got.c=1;done()},()=>{got.c=1;done()});
     db.collection("coaches").onSnapshot(s=>{S.coaches=s.docs.map(d=>({...d.data(),id:d.id}));got.k=1;done()},()=>{got.k=1;done()});
-    db.collection("seats").onSnapshot(s=>{S.seats=s.docs.map(d=>({...d.data(),id:d.id}));
+    for(const [tid,t] of Object.entries(TRIPS))db.collection(t.seats).onSnapshot(s=>{S.byTrip[tid]=s.docs.map(d=>({...d.data(),id:d.id}));
+      if(tid!==TRIP_ID){if(!got.s)return;render();return}
+      S.seats=S.byTrip[tid];
       const m=seatMap();for(const id of [...S.sel])if(m.has(id))S.sel.delete(id);got.s=1;done()},
       e=>{got.s=1;S.loaded=true;setStatus(e&&/docs|relation|schema cache/i.test(e.message||"")?"Database not set up yet. Run supabase/setup.sql in Supabase.":"Can't reach the database. Check your internet.",true);render()});
+    renderTrips();
   })();
 })();
 </script>
