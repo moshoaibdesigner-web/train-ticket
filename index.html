@@ -112,6 +112,7 @@ h2{font-size:20px;font-weight:700;margin:0}
 .selectbox{position:relative}
 .selectbox select{width:100%;appearance:none;-webkit-appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 44px 12px 20px;font-size:22px;font-weight:700;color:var(--booked);cursor:pointer}
 .selectbox::after{content:"";position:absolute;right:18px;top:50%;width:10px;height:10px;border-right:2px solid var(--booked);border-bottom:2px solid var(--booked);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.coachrow #renameCoachBtn{color:var(--muted)}
 .coachrow{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .legend{display:flex;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;font-size:12px;margin-top:12px}
 .legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}
@@ -336,7 +337,13 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
       </div>
     </div>
     <div class="selectbox"><select id="coachSel" aria-label="Coach"></select></div>
-    <div class="coachrow"><button class="linkbtn" type="button" id="addCoachBtn">+ Add coach</button><span class="sub" id="coachHint"></span></div>
+    <div class="coachrow"><button class="linkbtn" type="button" id="addCoachBtn">+ Add coach</button><button class="linkbtn" type="button" id="renameCoachBtn">Rename coach</button><span class="sub" id="coachHint"></span></div>
+    <form class="panel" id="renameForm" hidden style="margin-top:8px" autocomplete="off">
+      <label for="rName"><span>New name for coach <b id="rOld">UMA</b></span><input id="rName" maxlength="12" placeholder="e.g. KA" required></label>
+      <div class="sub" id="rInfo"></div>
+      <div id="rMsg"></div>
+      <div class="row"><button class="btn" type="submit" id="rSave">Rename</button><button class="btn ghost" type="button" data-close="renameForm">Cancel</button></div>
+    </form>
     <form class="panel" id="coachForm" hidden style="margin-top:8px">
       <div class="two">
         <label for="kName">Coach name<input id="kName" maxlength="12" placeholder="KA" required></label>
@@ -595,6 +602,7 @@ function makeDb(){
     $("coachSel").innerHTML=list.length?list.map(c=>`<option value="${esc(c.id)}"${c.id===S.coach?" selected":""}>${esc(c.id)} - ${booked(c.id)} Seat(s)</option>`).join(""):`<option value="">No coach yet</option>`;
     $("coachHint").textContent=list.length?"Seat(s) = our seats in this coach":"Add the coach your seats are in";
     $("addCoachBtn").hidden=!(S.canWrite&&db&&S.cls);
+    $("renameCoachBtn").hidden=!(S.canWrite&&db&&S.coach);
   }
 
   function renderMap(){
@@ -971,7 +979,35 @@ function makeDb(){
   $("sBuyer").addEventListener("change",()=>{const k=norm($("sBuyer").value);const s=S.seats.find(x=>norm(x.buyer)===k&&x.elx);if(s&&!$("sElx").value)$("sElx").value=s.elx;renderSheet()});
   $("clearSel").addEventListener("click",()=>{S.sel.clear();render()});
   $("coachSel").addEventListener("change",e=>{S.coach=e.target.value;S.sel.clear();S.focus=null;render()});
-  $("addCoachBtn").addEventListener("click",()=>{$("coachForm").hidden=!$("coachForm").hidden;$("kName").focus()});
+  $("addCoachBtn").addEventListener("click",()=>{$("renameForm").hidden=true;$("coachForm").hidden=!$("coachForm").hidden;$("kName").focus()});
+  // ---------- rename a coach (moves its booked seats on every trip to the new name) ----------
+  const seatsOfCoach=id=>Object.entries(TRIPS).flatMap(([tid,t])=>(S.byTrip[tid]||[]).filter(x=>x.coach===id).map(x=>({...x,_col:t.seats})));
+  $("renameCoachBtn").addEventListener("click",()=>{const f=$("renameForm");$("coachForm").hidden=true;f.hidden=!f.hidden;if(f.hidden)return;
+    const c=coachObj();if(!c){f.hidden=true;return}
+    const n=seatsOfCoach(c.id).length;
+    $("rOld").textContent=c.id;$("rName").value=c.id;$("rMsg").innerHTML="";
+    renameHint();$("rName").focus();$("rName").select()});
+  function renameHint(){const c=coachObj();if(!c)return;const n=seatsOfCoach(c.id).length,nw=slug($("rName").value)||"NEW";
+    $("rInfo").textContent=n?`${n} booked seat(s) on both trips will move with it: ${c.id}-1 becomes ${nw}-1.`:"No seats booked in this coach yet."}
+  $("rName").addEventListener("input",()=>{$("rMsg").innerHTML="";renameHint()});
+  $("renameForm").addEventListener("submit",async e=>{
+    e.preventDefault();const c=coachObj();if(!c||!db)return;
+    const oldId=c.id,newId=slug($("rName").value);
+    if(!newId){$("rMsg").innerHTML=`<div class="notice">Use letters and numbers only, e.g. KA or SCHA.</div>`;return}
+    if(newId===oldId){$("renameForm").hidden=true;return}
+    if(S.coaches.find(x=>x.id===newId)){$("rMsg").innerHTML=`<div class="notice">Coach ${esc(newId)} already exists. Pick another name.</div>`;return}
+    const list=seatsOfCoach(oldId);$("rSave").disabled=true;
+    try{
+      const {id:_c,...cdata}=c;await db.collection("coaches").doc(newId).set(cdata);
+      // copy every seat to its new id first, then remove the old ones
+      for(const x of list){const {id,_col,...d}=x;const n=d.seat??id.split("-").pop();await db.collection(_col).doc(newId+"-"+n).set({...d,coach:newId})}
+      for(const x of list)await db.collection(x._col).doc(x.id).delete();
+      await db.collection("coaches").doc(oldId).delete();
+      S.coach=newId;S.sel.clear();S.focus=null;$("renameForm").hidden=true;
+      toast(`Coach ${oldId} renamed to ${newId}`+(list.length?` · ${list.length} seat(s) moved`:""));
+    }catch(err){writeErr(err)}
+    $("rSave").disabled=false;render();
+  });
 
   document.addEventListener("click",async e=>{
     const t=e.target.closest("button");if(!t)return;
