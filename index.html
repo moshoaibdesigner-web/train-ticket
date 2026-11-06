@@ -113,6 +113,7 @@ h2{font-size:20px;font-weight:700;margin:0}
 .selectbox select{width:100%;appearance:none;-webkit-appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 44px 12px 20px;font-size:22px;font-weight:700;color:var(--booked);cursor:pointer}
 .selectbox::after{content:"";position:absolute;right:18px;top:50%;width:10px;height:10px;border-right:2px solid var(--booked);border-bottom:2px solid var(--booked);transform:translateY(-70%) rotate(45deg);pointer-events:none}
 .coachrow #renameCoachBtn{color:var(--muted)}
+.linkbtn.danger{color:var(--warn)}
 .coachrow{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .legend{display:flex;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;font-size:12px;margin-top:12px}
 .legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}
@@ -337,7 +338,7 @@ label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--muted)}
       </div>
     </div>
     <div class="selectbox"><select id="coachSel" aria-label="Coach"></select></div>
-    <div class="coachrow"><button class="linkbtn" type="button" id="addCoachBtn">+ Add coach</button><button class="linkbtn" type="button" id="renameCoachBtn">Rename coach</button><span class="sub" id="coachHint"></span></div>
+    <div class="coachrow"><button class="linkbtn" type="button" id="addCoachBtn">+ Add coach</button><button class="linkbtn" type="button" id="renameCoachBtn">Rename coach</button><button class="linkbtn danger" type="button" id="deleteCoachBtn">Delete coach</button><span class="sub" id="coachHint"></span></div>
     <form class="panel" id="renameForm" hidden style="margin-top:8px" autocomplete="off">
       <label for="rName"><span>New name for coach <b id="rOld">UMA</b></span><input id="rName" maxlength="12" placeholder="e.g. KA" required></label>
       <div class="sub" id="rInfo"></div>
@@ -510,15 +511,16 @@ function makeDb(){
 (function(){
   // trip details used in the Excel export
   const TRIPS={
-    "dhk-syl":{date:"11/14/2026 6:30",train:"PARABAT EXPRESS [709]",seats:"seats",file:"Parabat-Express-Dhaka-Sylhet-14-Nov-2026"},
-    "syl-dhk":{date:"11/16/2026",train:"JAYENTIKA EXPRESS [718]",seats:"seats_syl_dhk",file:"Jayentika-Express-Sylhet-Dhaka-16-Nov-2026"}};
+    "dhk-syl":{date:"11/14/2026 6:30",train:"PARABAT EXPRESS [709]",seats:"seats",coaches:"coaches",file:"Parabat-Express-Dhaka-Sylhet-14-Nov-2026"},
+    "syl-dhk":{date:"11/16/2026",train:"JAYENTIKA EXPRESS [718]",seats:"seats_syl_dhk",coaches:"coaches_syl_dhk",file:"Jayentika-Express-Sylhet-Dhaka-16-Nov-2026"}};
   let TRIP_ID="dhk-syl";try{const t=localStorage.getItem("ticketTrip");if(TRIPS[t])TRIP_ID=t}catch(_){}
   let TRIP=TRIPS[TRIP_ID];
   const SEATS=()=>TRIP.seats; // seats collection of the open trip
+  const COACHES=()=>TRIP.coaches; // each trip has its own coach names
   const AC_CLASSES=new Set(["AC_S","SNIGDHA"]);  // everything else is Non AC
   const BN_COACH={KA:"ক",KHA:"খ",GA:"গ",GHA:"ঘ",UMA:"ঙ",CHA:"চ",SCHA:"ছ",JA:"জ",JHA:"ঝ",NEO:"ঞ",TA:"ট",THA:"ঠ",DA:"ড",DHA:"ঢ",TO:"ত",THO:"থ",DO:"দ",DHO:"ধ",NO:"ন"};
   const bnDigits=n=>String(n).replace(/\d/g,d=>"০১২৩৪৫৬৭৮৯"[d]);
-  const S={byTrip:{},classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true,refund:"Non Refund",pass:{},passKey:""};
+  const S={byTrip:{},coachesByTrip:{},classes:[],coaches:[],seats:[],cls:null,coach:null,sel:new Set(),focus:null,confirm:false,loaded:false,canWrite:true,refund:"Non Refund",pass:{},passKey:""};
   const money=n=>"৳"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
   const fareOf=s=>Number.isFinite(+s.fare)&&s.fare!==null&&s.fare!==""?+s.fare:null;
   let VIEW="captain";try{if(localStorage.getItem("ticketView")==="passenger")VIEW="passenger"}catch(_){}
@@ -602,13 +604,14 @@ function makeDb(){
     $("coachSel").innerHTML=list.length?list.map(c=>`<option value="${esc(c.id)}"${c.id===S.coach?" selected":""}>${esc(c.id)} - ${booked(c.id)} Seat(s)</option>`).join(""):`<option value="">No coach yet</option>`;
     $("coachHint").textContent=list.length?"Seat(s) = our seats in this coach":"Add the coach your seats are in";
     $("addCoachBtn").hidden=!(S.canWrite&&db&&S.cls);
-    $("renameCoachBtn").hidden=!(S.canWrite&&db&&S.coach);
+    $("renameCoachBtn").hidden=!(S.canWrite&&db&&S.coach);$("deleteCoachBtn").hidden=$("renameCoachBtn").hidden;
   }
 
   function renderMap(){
     const c=coachObj();
     if(!S.loaded){$("map").innerHTML=`<div class="emptymap">Loading seats…</div>`;return}
-    if(!c){$("map").innerHTML=`<div class="emptymap">No coach for this class yet. Tap <b>+ Add coach</b> above.</div>`;return}
+    if(!c){const other=Object.keys(TRIPS).find(t=>t!==TRIP_ID),oc=(S.coachesByTrip[other]||[]).filter(x=>x.seatClass===S.cls);
+      $("map").innerHTML=`<div class="emptymap">No coach for this class on this trip yet. Tap <b>+ Add coach</b> above.${oc.length&&S.canWrite&&db?`<div style="margin-top:12px"><button class="btn small" type="button" id="copyCoaches">Copy ${oc.length} coach${oc.length===1?"":"es"} from the other trip</button><div class="sub" style="margin-top:6px">${oc.map(x=>esc(x.id)).join(", ")} · you can rename them after</div></div>`:""}</div>`;return}
     const m=seatMap();
     const three=c.layout==="acs";
     let h=`<div class="grid${three?" g3":""}">`;
@@ -893,7 +896,7 @@ function makeDb(){
   function switchTrip(id){
     if(!TRIPS[id]||id===TRIP_ID)return;
     TRIP_ID=id;TRIP=TRIPS[id];try{localStorage.setItem("ticketTrip",id)}catch(_){}
-    S.seats=S.byTrip[id]||[];S.sel.clear();S.focus=null;S.editing=false;S.pEdit=null;S.pDraft=null;S.pass={};S.passKey="";
+    S.seats=S.byTrip[id]||[];S.coaches=S.coachesByTrip[id]||[];S.coach=null;$("renameForm").hidden=true;$("coachForm").hidden=true;S.sel.clear();S.focus=null;S.editing=false;S.pEdit=null;S.pDraft=null;S.pass={};S.passKey="";
     if(!$("edBack").hidden)$("edBack").hidden=true;
     $("bSearch").value="";renderTrips();render();
     toast(id==="syl-dhk"?"Sylhet → Dhaka · 16.11.2026 · Jayentika Express":"Dhaka → Sylhet · 14.11.2026 · Parabat Express");
@@ -981,15 +984,29 @@ function makeDb(){
   $("coachSel").addEventListener("change",e=>{S.coach=e.target.value;S.sel.clear();S.focus=null;render()});
   $("addCoachBtn").addEventListener("click",()=>{$("renameForm").hidden=true;$("coachForm").hidden=!$("coachForm").hidden;$("kName").focus()});
   // ---------- rename a coach (moves its booked seats on every trip to the new name) ----------
-  const seatsOfCoach=id=>Object.entries(TRIPS).flatMap(([tid,t])=>(S.byTrip[tid]||[]).filter(x=>x.coach===id).map(x=>({...x,_col:t.seats})));
+  const seatsOfCoach=id=>(S.byTrip[TRIP_ID]||[]).filter(x=>x.coach===id).map(x=>({...x,_col:SEATS()}));
   $("renameCoachBtn").addEventListener("click",()=>{const f=$("renameForm");$("coachForm").hidden=true;f.hidden=!f.hidden;if(f.hidden)return;
     const c=coachObj();if(!c){f.hidden=true;return}
     const n=seatsOfCoach(c.id).length;
     $("rOld").textContent=c.id;$("rName").value=c.id;$("rMsg").innerHTML="";
     renameHint();$("rName").focus();$("rName").select()});
   function renameHint(){const c=coachObj();if(!c)return;const n=seatsOfCoach(c.id).length,nw=slug($("rName").value)||"NEW";
-    $("rInfo").textContent=n?`${n} booked seat(s) on both trips will move with it: ${c.id}-1 becomes ${nw}-1.`:"No seats booked in this coach yet."}
+    $("rInfo").textContent=n?`${n} booked seat(s) on this trip will move with it: ${c.id}-1 becomes ${nw}-1.`:"No seats booked in this coach yet."}
   $("rName").addEventListener("input",()=>{$("rMsg").innerHTML="";renameHint()});
+  // ---------- delete a coach on the open trip (and its booked seats, after confirming) ----------
+  $("deleteCoachBtn").addEventListener("click",async()=>{
+    const c=coachObj();if(!c||!db)return;$("renameForm").hidden=true;$("coachForm").hidden=true;
+    const list=seatsOfCoach(c.id).sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true}));
+    const ok=await askConfirm({title:`Delete coach ${c.id}?`,
+      body:list.length?`It has <b>${list.length} booked seat(s)</b> on this trip. They will be deleted too. The other trip is not changed.`:`It has no booked seats on this trip. The other trip is not changed.`,
+      seats:list.map(x=>x.id),okText:list.length?`Delete coach and ${list.length} seat(s)`:"Delete coach"});
+    if(!ok)return;
+    try{for(const x of list)await db.collection(x._col).doc(x.id).delete();
+      await db.collection(COACHES()).doc(c.id).delete();
+      S.coach=null;S.sel.clear();S.focus=null;toast(`Coach ${c.id} deleted`+(list.length?` · ${list.length} seat(s) removed`:""));
+    }catch(err){writeErr(err)}
+    render();
+  });
   $("renameForm").addEventListener("submit",async e=>{
     e.preventDefault();const c=coachObj();if(!c||!db)return;
     const oldId=c.id,newId=slug($("rName").value);
@@ -998,11 +1015,11 @@ function makeDb(){
     if(S.coaches.find(x=>x.id===newId)){$("rMsg").innerHTML=`<div class="notice">Coach ${esc(newId)} already exists. Pick another name.</div>`;return}
     const list=seatsOfCoach(oldId);$("rSave").disabled=true;
     try{
-      const {id:_c,...cdata}=c;await db.collection("coaches").doc(newId).set(cdata);
+      const {id:_c,...cdata}=c;await db.collection(COACHES()).doc(newId).set(cdata);
       // copy every seat to its new id first, then remove the old ones
       for(const x of list){const {id,_col,...d}=x;const n=d.seat??id.split("-").pop();await db.collection(_col).doc(newId+"-"+n).set({...d,coach:newId})}
       for(const x of list)await db.collection(x._col).doc(x.id).delete();
-      await db.collection("coaches").doc(oldId).delete();
+      await db.collection(COACHES()).doc(oldId).delete();
       S.coach=newId;S.sel.clear();S.focus=null;$("renameForm").hidden=true;
       toast(`Coach ${oldId} renamed to ${newId}`+(list.length?` · ${list.length} seat(s) moved`:""));
     }catch(err){writeErr(err)}
@@ -1024,6 +1041,8 @@ function makeDb(){
     if(t.dataset.psave){savePEdit(false);return}
     if(t.dataset.pclear){const i=$("pInput");if(i){i.value="";S.pDraft="";t.hidden=true;i.focus()}return}
     if(t.dataset.trip){switchTrip(t.dataset.trip);return}
+    if(t.id==="copyCoaches"){const other=Object.keys(TRIPS).find(x=>x!==TRIP_ID);const oc=(S.coachesByTrip[other]||[]).filter(x=>x.seatClass===S.cls);
+      t.disabled=true;try{for(const x of oc){const {id,...d}=x;if(!S.coaches.find(y=>y.id===id))await db.collection(COACHES()).doc(id).set(d)}toast(oc.length+" coach(es) copied")}catch(err){writeErr(err)}return}
     if(t.dataset.view){S.pEdit=null;S.pDraft=null;VIEW=t.dataset.view;try{localStorage.setItem("ticketView",VIEW)}catch(_){}renderMap();renderBuyers();return}
     if(t.dataset.refund){S.refund=t.dataset.refund;renderSheet();return}
     if(t.id==="useSuggest"){S.amountTouched=false;renderSheet();return}
@@ -1060,7 +1079,7 @@ function makeDb(){
     e.preventDefault();const id=slug($("kName").value);const n=Math.max(1,Math.min(120,parseInt($("kSeats").value)||55));
     if(!id||!db||!S.cls)return;
     if(S.coaches.find(c=>c.id===id)){toast("Coach "+id+" already exists");return}
-    try{await db.collection("coaches").doc(id).set({seatClass:S.cls,seats:n});S.coach=id;$("coachForm").hidden=true;$("kName").value="";toast("Coach "+id+" added")}catch(err){writeErr(err)}
+    try{await db.collection(COACHES()).doc(id).set({seatClass:S.cls,seats:n});S.coach=id;$("coachForm").hidden=true;$("kName").value="";toast("Coach "+id+" added")}catch(err){writeErr(err)}
   });
   $("classForm").addEventListener("submit",async e=>{
     e.preventDefault();const id=slug($("cName").value);if(!id||!db)return;
@@ -1078,7 +1097,8 @@ function makeDb(){
     const done=()=>{if(got.c&&got.k&&got.s&&!S.loaded){S.loaded=true;clearTimeout(timer)}
       setStatus(S.canWrite?"Live · shared with everyone":"View only",!S.canWrite);render()};
     db.collection("classes").onSnapshot(s=>{S.classes=s.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(a.order||99)-(b.order||99));if(!S.cls||!S.classes.find(c=>c.id===S.cls))S.cls=S.classes[0]&&S.classes[0].id;got.c=1;done()},()=>{got.c=1;done()});
-    db.collection("coaches").onSnapshot(s=>{S.coaches=s.docs.map(d=>({...d.data(),id:d.id}));got.k=1;done()},()=>{got.k=1;done()});
+    for(const [tid,t] of Object.entries(TRIPS))db.collection(t.coaches).onSnapshot(s=>{S.coachesByTrip[tid]=s.docs.map(d=>({...d.data(),id:d.id}));
+      if(tid===TRIP_ID){S.coaches=S.coachesByTrip[tid];got.k=1;done()}else if(got.k)render()},()=>{if(tid===TRIP_ID){got.k=1;done()}});
     for(const [tid,t] of Object.entries(TRIPS))db.collection(t.seats).onSnapshot(s=>{S.byTrip[tid]=s.docs.map(d=>({...d.data(),id:d.id}));
       if(tid!==TRIP_ID){if(!got.s)return;render();return}
       S.seats=S.byTrip[tid];
